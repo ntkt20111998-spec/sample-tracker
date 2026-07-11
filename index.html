@@ -262,6 +262,7 @@
   }
   .linked-sample-item:hover{border-color:var(--accent);}
   .linked-sample-item .lsi-desc{flex:1; font-weight:600;}
+  .linked-sample-item .lsi-code{color:var(--ink-soft); font-weight:400; font-size:11px;}
   .linked-sample-item .lsi-meta{color:var(--ink-soft); font-size:11px; white-space:nowrap;}
 
   .opp-sample-badge{display:flex; align-items:center; gap:4px; font-size:11px; color:var(--ink-soft); margin-top:4px;}
@@ -829,7 +830,8 @@ function attachRecordsListener(){
   unsubscribeSamples = samplesCollection().onSnapshot(snap => {
     records = snap.docs.map(d => d.data());
     records.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
-    renderAll();
+    if(currentModule === 'samples') renderAll();
+    else if(currentModule === 'opportunities') renderOpportunitiesView();
   }, err => {
     console.error('Firestore listen error', err);
     showToast('Lỗi kết nối dữ liệu: ' + err.message);
@@ -1619,7 +1621,7 @@ function renderOppCustomerProgress(){
       const items = linked.map(r => `
         <div class="linked-sample-item" data-id="${r.id}">
           ${r.image ? `<img class="thumb" src="${r.image}">` : `<div class="thumb-empty">—</div>`}
-          <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}</div>
+          <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}${r.soDonMau ? ` <span class="lsi-code">#${escapeHtml(r.soDonMau)}</span>` : ''}</div>
           <span class="badge ${r.statusGroup === 'production' ? 'production' : 'special'}">${escapeHtml(statusLabel(r))}</span>
           <span class="lsi-meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</span>
         </div>`).join('');
@@ -1650,7 +1652,6 @@ function renderOppCustomerProgress(){
 
   container.querySelectorAll('.linked-sample-item').forEach(el => el.addEventListener('click', e => {
     e.stopPropagation();
-    switchModule('samples');
     openEdit(el.dataset.id);
   }));
   container.querySelectorAll('.cpo-title').forEach(el => el.addEventListener('click', () => openEditOpportunity(el.dataset.oppId)));
@@ -1743,15 +1744,13 @@ function renderOppLinkedSamples(o){
   wrap.innerHTML = `<div class="linked-samples">${linked.map(r => `
     <div class="linked-sample-item" data-id="${r.id}">
       ${r.image ? `<img class="thumb" src="${r.image}">` : `<div class="thumb-empty">—</div>`}
-      <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}</div>
+      <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}${r.soDonMau ? ` <span class="lsi-code">#${escapeHtml(r.soDonMau)}</span>` : ''}</div>
       <span class="badge ${r.statusGroup === 'production' ? 'production' : 'special'}">${escapeHtml(statusLabel(r))}</span>
       <span class="lsi-meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</span>
     </div>`).join('')}</div>`;
   wrap.querySelectorAll('.linked-sample-item').forEach(el => el.addEventListener('click', () => {
-    const id = el.dataset.id;
     closeOppModal();
-    switchModule('samples');
-    openEdit(id);
+    openEdit(el.dataset.id);
   }));
 }
 
