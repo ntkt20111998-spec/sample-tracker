@@ -111,7 +111,8 @@
   tbody td{padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle;}
   tbody tr:hover{background:#FDFBF7;}
   tbody tr.overdue-row{background:var(--rust-soft);}
-  .thumb{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:#f2ede4;}
+  .thumb{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer;}
+  .thumb:hover{border-color:var(--accent);}
   .thumb-empty{width:36px; height:36px; border-radius:6px; border:1px dashed var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:10px;}
   .desc-cell{max-width:220px;}
   .desc-cell .collection{font-size:11px; color:var(--ink-soft);}
@@ -189,7 +190,8 @@
   .status-group-toggle button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
   .modal-actions{display:flex; justify-content:space-between; align-items:center; margin-top:18px; gap:10px;}
   .img-upload{display:flex; align-items:center; gap:10px;}
-  .img-preview{width:56px; height:56px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:#f2ede4;}
+  .img-preview{width:56px; height:56px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer;}
+  .img-preview:hover{border-color:var(--accent);}
   .history-box{
     margin-top:16px; border-top:1px solid var(--line); padding-top:12px; font-size:12px; color:var(--ink-soft);
   }
@@ -404,6 +406,11 @@
   </div>
 </div>
 
+<!-- Image lightbox -->
+<div class="overlay" id="imageOverlay" style="z-index:60; background:rgba(20,16,13,.8);">
+  <img id="fullImage" style="max-width:92vw; max-height:92vh; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,.4);">
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -612,6 +619,12 @@ async function handleLoginSubmit(){
 }
 
 /* ================= RENDER ================= */
+function formatDateOnly(s){
+  if(!s) return s;
+  const m = String(s).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s;
+}
+
 function isOverdue(rec){
   if(rec.outcome === 'Approved' || rec.outcome === 'Rejected') return false;
   const dateStr = rec.updatedETD || rec.confirmedETD;
@@ -716,7 +729,7 @@ function renderTable(){
     const overdue = isOverdue(r);
     const badgeClass = r.statusGroup === 'production' ? 'production' : 'special';
     const img = r.image
-      ? `<img class="thumb" src="${r.image}">`
+      ? `<img class="thumb" src="${r.image}" data-full="${r.image}">`
       : `<div class="thumb-empty">—</div>`;
     return `
       <tr class="${overdue ? 'overdue-row' : ''}" data-id="${r.id}">
@@ -729,7 +742,7 @@ function renderTable(){
         </td>
         <td><span class="badge ${badgeClass}">${escapeHtml(statusLabel(r))}</span></td>
         <td>${escapeHtml(r.person || '—')}</td>
-        <td>${escapeHtml(r.updatedETD || r.confirmedETD || '—')}</td>
+        <td>${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '—')}</td>
         <td><span class="badge ${outcomeBadgeClass(r.outcome)}">${escapeHtml(r.outcome || 'Chưa có kết quả')}</span></td>
         <td>
           <div class="row-actions">
@@ -751,6 +764,7 @@ function renderTable(){
 
   container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', e => openEdit(e.currentTarget.dataset.id)));
   container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.thumb').forEach(img => img.addEventListener('click', e => { e.stopPropagation(); openImageLightbox(e.currentTarget.dataset.full); }));
 }
 
 function renderKanban(){
@@ -768,7 +782,7 @@ function renderKanban(){
             <div class="brand-line"><span>${escapeHtml(r.brand)} · ${escapeHtml(r.season)}</span><span>${escapeHtml(r.soDonMau ? '#'+r.soDonMau : '')}</span></div>
             <div class="desc">${escapeHtml(r.description)}</div>
             <div class="meta">${escapeHtml(r.collection || '')}${r.person ? ' · '+escapeHtml(r.person) : ''}</div>
-            <div class="meta">${escapeHtml(r.updatedETD || r.confirmedETD || '')}</div>
+            <div class="meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</div>
           </div>`).join('')}
       </div>
     </div>`;
@@ -826,9 +840,9 @@ function openEdit(id){
   document.getElementById('f_description').value = rec.description || '';
   document.getElementById('f_person').value = rec.person || '';
   document.getElementById('f_qty').value = rec.qty || '';
-  document.getElementById('f_confirmedETD').value = rec.confirmedETD || '';
-  document.getElementById('f_updatedETD').value = rec.updatedETD || '';
-  document.getElementById('f_shipDate').value = rec.shipDate || '';
+  document.getElementById('f_confirmedETD').value = formatDateOnly(rec.confirmedETD) || '';
+  document.getElementById('f_updatedETD').value = formatDateOnly(rec.updatedETD) || '';
+  document.getElementById('f_shipDate').value = formatDateOnly(rec.shipDate) || '';
   document.getElementById('f_tracking').value = rec.tracking || '';
   document.getElementById('f_note').value = rec.note || '';
   document.getElementById('f_outcome').value = rec.outcome || 'Chưa có kết quả';
@@ -978,7 +992,7 @@ function exportCsv(){
   const headers = ['Brand','Season','Collection','Số đơn mẫu','Mô tả','Trạng thái','Người phụ trách','Kết quả','Số lượng','Confirmed ETD','Updated ETD','Ship date','Tracking','Ghi chú'];
   const rows = list.map(r => [
     r.brand, r.season, r.collection, r.soDonMau, r.description, statusLabel(r), r.person, r.outcome,
-    r.qty, r.confirmedETD, r.updatedETD, r.shipDate, r.tracking, r.note
+    r.qty, formatDateOnly(r.confirmedETD), formatDateOnly(r.updatedETD), formatDateOnly(r.shipDate), r.tracking, r.note
   ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(','));
   const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
@@ -1000,8 +1014,21 @@ function showToast(msg){
 }
 
 /* ================= EVENTS ================= */
+function openImageLightbox(src){
+  if(!src) return;
+  document.getElementById('fullImage').src = src;
+  document.getElementById('imageOverlay').classList.add('open');
+}
+
 function bindEvents(){
   document.getElementById('addBtn').addEventListener('click', openAdd);
+  document.getElementById('imageOverlay').addEventListener('click', () => {
+    document.getElementById('imageOverlay').classList.remove('open');
+  });
+  document.getElementById('imgPreview').addEventListener('click', () => {
+    const src = document.getElementById('imgPreview').src;
+    if(src) openImageLightbox(src);
+  });
   document.getElementById('cancelBtn').addEventListener('click', closeModal);
   document.getElementById('recordForm').addEventListener('submit', saveRecord);
   document.getElementById('deleteBtn').addEventListener('click', () => askDelete(editingId));
