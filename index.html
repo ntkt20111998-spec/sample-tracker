@@ -213,6 +213,46 @@
     .form-grid{grid-template-columns:1fr;}
     table{display:block; overflow-x:auto;}
   }
+
+  /* ---------- nav tabs ---------- */
+  .nav-tabs{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:3px;}
+  .nav-tabs button{
+    border:none; background:transparent; padding:8px 14px; border-radius:8px; font-size:13px;
+    font-family:var(--font-body); font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .nav-tabs button.active{background:var(--ink); color:#fff;}
+
+  /* ---------- auto-fill info box (opportunity <- customer) ---------- */
+  .info-box{
+    background:var(--sage-soft); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:4px 0 6px;
+  }
+  .info-box .info-title{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--sage); font-weight:700; margin-bottom:8px;}
+  .info-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 16px;}
+  .info-grid .item .k{font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em;}
+  .info-grid .item .v{font-size:13px; font-weight:600;}
+  .info-empty{font-size:12.5px; color:var(--ink-soft); font-style:italic;}
+
+  /* ---------- log list (Đã thực hiện) ---------- */
+  .log-list{border:1px solid var(--line); border-radius:8px; max-height:160px; overflow-y:auto; padding:8px 10px; background:var(--bg); font-size:12.5px;}
+  .log-list .log-item{padding:4px 0; border-bottom:1px dashed var(--line);}
+  .log-list .log-item:last-child{border-bottom:none;}
+  .log-list .log-item .log-date{color:var(--ink-soft); font-weight:700; margin-right:6px;}
+  .log-add-row{display:flex; gap:8px; margin-top:8px;}
+  .log-add-row input{flex:1;}
+
+  /* ---------- dashboard breakdown ---------- */
+  .dash-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px;}
+  .dash-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+  .dash-card h3{font-family:var(--font-display); font-size:15px; margin:0 0 10px;}
+  .dash-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .dash-table th{text-align:left; color:var(--ink-soft); font-weight:600; padding:5px 6px; border-bottom:1px solid var(--line);}
+  .dash-table td{padding:5px 6px; border-bottom:1px solid var(--line);}
+  .dash-table tr:last-child td{border-bottom:none;}
+  @media (max-width:900px){ .dash-grid{grid-template-columns:1fr;} }
+
+  .modal-lg .modal{max-width:760px;}
+  .field-hint{font-size:11px; color:var(--ink-soft); margin-top:3px;}
+  .opp-link-row{display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; background:var(--accent-soft); border-radius:8px; font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -221,9 +261,14 @@
   <div class="brandmark">
     <div class="tag"></div>
     <div>
-      <h1>Theo dõi mẫu phát triển</h1>
-      <p>Cat Dang Handicraft — nhiều brand, nhiều thành viên</p>
+      <h1 id="appTitle">Theo dõi mẫu phát triển</h1>
+      <p id="appSubtitle">Cat Dang Handicraft — nhiều brand, nhiều thành viên</p>
     </div>
+  </div>
+  <div class="nav-tabs" id="navTabs">
+    <button class="nav-tab active" data-module="samples">Theo dõi mẫu</button>
+    <button class="nav-tab" data-module="opportunities">Cơ hội bán hàng</button>
+    <button class="nav-tab" data-module="customers">Khách hàng</button>
   </div>
   <div style="display:flex; align-items:center; gap:10px;">
     <button class="user-chip" id="userChip">Đang tải...</button>
@@ -231,26 +276,69 @@
   </div>
 </div>
 
-<div class="stats" id="statsRow"></div>
+<!-- ============ MODULE: THEO DÕI MẪU ============ -->
+<div id="samplesModule">
+  <div class="stats" id="statsRow"></div>
 
-<div class="toolbar">
-  <input type="text" id="searchInput" placeholder="Tìm mô tả, mã đơn mẫu, collection...">
-  <select id="filterBrand"><option value="">Tất cả brand</option></select>
-  <select id="filterSeason"><option value="">Tất cả season</option></select>
-  <select id="filterCollection"><option value="">Tất cả collection</option></select>
-  <select id="filterPerson"><option value="">Tất cả người phụ trách</option></select>
-  <label class="checkbox-pill"><input type="checkbox" id="filterOverdue"> Chỉ hiện quá hạn</label>
-  <div class="spacer"></div>
-  <button class="btn-ghost" id="exportBtn">Xuất CSV</button>
-  <div class="view-toggle">
-    <button id="viewTableBtn" class="active">Bảng</button>
-    <button id="viewKanbanBtn">Kanban</button>
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="Tìm mô tả, mã đơn mẫu, collection...">
+    <select id="filterBrand"><option value="">Tất cả brand</option></select>
+    <select id="filterSeason"><option value="">Tất cả season</option></select>
+    <select id="filterCollection"><option value="">Tất cả collection</option></select>
+    <select id="filterPerson"><option value="">Tất cả người phụ trách</option></select>
+    <label class="checkbox-pill"><input type="checkbox" id="filterOverdue"> Chỉ hiện quá hạn</label>
+    <div class="spacer"></div>
+    <button class="btn-ghost" id="exportBtn">Xuất CSV</button>
+    <div class="view-toggle">
+      <button id="viewTableBtn" class="active">Bảng</button>
+      <button id="viewKanbanBtn">Kanban</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div id="tableView"></div>
+    <div id="kanbanView" style="display:none;"></div>
   </div>
 </div>
 
-<div class="content">
-  <div id="tableView"></div>
-  <div id="kanbanView" style="display:none;"></div>
+<!-- ============ MODULE: CƠ HỘI BÁN HÀNG ============ -->
+<div id="opportunitiesModule" style="display:none;">
+  <div class="stats" id="oppStatsRow"></div>
+
+  <div class="toolbar">
+    <input type="text" id="oppSearchInput" placeholder="Tìm khách hàng, mã KH, sản phẩm...">
+    <select id="oppFilterType"><option value="">Tất cả loại cơ hội</option></select>
+    <select id="oppFilterStatus"><option value="">Tất cả trạng thái</option></select>
+    <select id="oppFilterMarket"><option value="">Tất cả thị trường</option></select>
+    <select id="oppFilterPerson"><option value="">Tất cả người phụ trách</option></select>
+    <label class="checkbox-pill"><input type="checkbox" id="oppFilterOverdue"> Chỉ hiện quá hạn follow-up</label>
+    <div class="spacer"></div>
+    <button class="btn-ghost" id="oppExportBtn">Xuất CSV</button>
+    <div class="view-toggle">
+      <button id="oppViewTableBtn" class="active">Bảng</button>
+      <button id="oppViewKanbanBtn">Kanban</button>
+      <button id="oppViewDashboardBtn">Thống kê</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div id="oppTableView"></div>
+    <div id="oppKanbanView" style="display:none;"></div>
+    <div id="oppDashboardView" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ============ MODULE: KHÁCH HÀNG ============ -->
+<div id="customersModule" style="display:none;">
+  <div class="toolbar">
+    <input type="text" id="custSearchInput" placeholder="Tìm tên công ty, mã KH, người liên hệ...">
+    <select id="custFilterMarket"><option value="">Tất cả thị trường</option></select>
+    <select id="custFilterAccountSize"><option value="">Tất cả quy mô tài khoản</option></select>
+    <div class="spacer"></div>
+  </div>
+  <div class="content">
+    <div id="custTableView"></div>
+  </div>
 </div>
 
 <!-- Record modal -->
@@ -325,8 +413,7 @@
 
         <div>
           <label>Người phụ trách</label>
-          <input type="text" id="f_person" list="personList">
-          <datalist id="personList"></datalist>
+          <select id="f_person"><option value="">— Chọn người phụ trách —</option></select>
         </div>
         <div>
           <label>Kết quả</label>
@@ -374,6 +461,174 @@
   </div>
 </div>
 
+<!-- Customer modal -->
+<div class="overlay" id="customerOverlay">
+  <div class="modal">
+    <h2 id="custModalTitle">Thêm khách hàng mới</h2>
+    <form id="customerForm">
+      <div class="form-grid">
+        <div class="full">
+          <label>Tên khách hàng / Công ty *</label>
+          <input type="text" id="c_name" required placeholder="VD: Neatfreak (Canada)">
+          <div class="field-hint" id="c_nameHint"></div>
+        </div>
+        <div>
+          <label>Mã KH</label>
+          <input type="text" id="c_code" placeholder="VD: KH-001">
+        </div>
+        <div>
+          <label>Người phụ trách</label>
+          <select id="c_person"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Thị trường / Khu vực</label>
+          <select id="c_market"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Vai trò khách hàng</label>
+          <select id="c_role"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Kênh bán</label>
+          <select id="c_channel"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Quy mô tài khoản</label>
+          <select id="c_accountSize"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Khách chiến lược?</label>
+          <select id="c_strategic"><option value="">— Chọn —</option></select>
+        </div>
+        <div class="full">
+          <label>Người liên hệ (Email)</label>
+          <input type="text" id="c_contact" placeholder="VD: Ana Delgado - adelgado@neatfreak.com">
+        </div>
+        <div class="full">
+          <label>Ghi chú</label>
+          <textarea id="c_note"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="custDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá khách hàng này</button>
+        <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="custCancelBtn">Huỷ</button>
+        <button type="submit" class="btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Opportunity modal -->
+<div class="overlay modal-lg" id="oppOverlay">
+  <div class="modal">
+    <h2 id="oppModalTitle">Thêm cơ hội mới</h2>
+    <form id="oppForm">
+      <div class="form-grid">
+        <div>
+          <label>Tuần</label>
+          <input type="text" id="o_week" placeholder="VD: WEEK 6.7 - 11.7.26">
+        </div>
+        <div>
+          <label>Ngày nhận</label>
+          <input type="date" id="o_dateReceived">
+        </div>
+        <div>
+          <label>Loại cơ hội</label>
+          <select id="o_type"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Phân loại</label>
+          <select id="o_classification"><option value="">— Chọn —</option></select>
+        </div>
+        <div class="full">
+          <label>Khách hàng / Công ty *</label>
+          <div style="display:flex; gap:8px;">
+            <select id="o_customerId" style="flex:1;" required><option value="">— Chọn khách hàng —</option></select>
+            <button type="button" class="btn-ghost" id="oppNewCustomerBtn">+ Khách hàng mới</button>
+          </div>
+        </div>
+        <div class="full">
+          <div class="info-box">
+            <div class="info-title">Thông tin khách hàng (tự động điền)</div>
+            <div id="oppCustomerInfo"><div class="info-empty">Chọn khách hàng để xem thông tin.</div></div>
+          </div>
+        </div>
+        <div>
+          <label>Ngành hàng sản phẩm</label>
+          <select id="o_productCategory"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Giá trị ước tính (USD)</label>
+          <input type="text" id="o_estimatedValue" placeholder="VD: 5200">
+        </div>
+        <div class="full">
+          <label>Sản phẩm / Nội dung inquiry</label>
+          <input type="text" id="o_productDesc" placeholder="VD: 08183 – 18in Acacia Charcuterie Tray">
+        </div>
+        <div class="full">
+          <label>Yêu cầu chính</label>
+          <textarea id="o_requirements"></textarea>
+        </div>
+        <div>
+          <label>Deadline</label>
+          <input type="date" id="o_deadline">
+        </div>
+        <div>
+          <label>Ưu tiên</label>
+          <select id="o_priority"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Trạng thái</label>
+          <select id="o_status"><option value="">— Chọn —</option></select>
+        </div>
+        <div id="o_winLossWrap" style="display:none;">
+          <label>Lý do thắng/thua</label>
+          <select id="o_winLossReason"><option value="">— Chọn —</option></select>
+        </div>
+        <div class="full">
+          <label>Hành động tiếp theo</label>
+          <input type="text" id="o_nextAction">
+        </div>
+        <div>
+          <label>Ngày follow-up kế tiếp</label>
+          <input type="date" id="o_nextFollowUp">
+        </div>
+        <div class="full">
+          <label>Phản hồi khách</label>
+          <textarea id="o_customerFeedback"></textarea>
+        </div>
+        <div class="full">
+          <label>Đã thực hiện (log theo ngày)</label>
+          <div class="log-list" id="oppLogList"></div>
+          <div class="log-add-row">
+            <input type="text" id="o_logInput" placeholder="Nhập việc vừa làm...">
+            <button type="button" class="btn-ghost" id="oppAddLogBtn">+ Thêm log hôm nay</button>
+          </div>
+        </div>
+        <div class="full">
+          <label>Ghi chú</label>
+          <textarea id="o_notes"></textarea>
+        </div>
+      </div>
+
+      <div id="oppNpdLinkWrap" style="display:none;">
+        <div class="opp-link-row" id="oppLinkRow"></div>
+        <div class="modal-actions" style="margin-top:8px;">
+          <button type="button" class="btn-ghost" id="oppCreateSampleBtn">📐 Tạo mẫu từ cơ hội này</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="oppDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá cơ hội này</button>
+        <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="oppCancelBtn">Huỷ</button>
+        <button type="submit" class="btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Login / Name modal -->
 <div class="overlay name-modal" id="nameOverlay">
   <div class="modal">
@@ -397,7 +652,7 @@
 <!-- Confirm delete modal -->
 <div class="overlay confirm-modal" id="confirmOverlay">
   <div class="modal">
-    <h2>Xoá mẫu này?</h2>
+    <h2 id="confirmTitle">Xoá mẫu này?</h2>
     <p style="color:var(--ink-soft); font-size:13px;">Hành động này không thể hoàn tác.</p>
     <div class="modal-actions">
       <button class="btn-ghost" id="confirmCancelBtn">Huỷ</button>
@@ -428,7 +683,32 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const AUTH_EMAIL = 'team@catdang-sample-tracker.app';
 const SAMPLES_COL = 'samples';
+const CUSTOMERS_COL = 'customers';
+const OPPORTUNITIES_COL = 'opportunities';
 function samplesCollection(){ return db.collection(SAMPLES_COL); }
+function customersCollection(){ return db.collection(CUSTOMERS_COL); }
+function opportunitiesCollection(){ return db.collection(OPPORTUNITIES_COL); }
+
+/* ================= DANH MỤC (dropdown lists — theo file THEO DÕI CƠ HỘI BÁN HÀNG) ================= */
+const TEAM_MEMBERS = ['Tiên','Thanh','Tuyến','Dũng','Dung','Mi','Duyên','Nga','Tiến'];
+const OPP_TYPES = ['Chào hàng (SP có sẵn)','Phát triển mẫu mới (NPD)','Đơn hàng lặp lại'];
+const OPP_CLASSES = ['LEAD','REGULAR'];
+const OPP_STATUSES = ['Mới nhận','Đang xử lý','Đã báo giá','Chờ khách phản hồi','Làm mẫu','Thắng đơn','Không thành công','Tạm dừng'];
+const OPP_PRIORITIES = ['Cao','Trung bình','Thấp'];
+const MARKETS = ['US Market','EU Market','UK Market','AUS Market','Canada Market','LatAm Market','Domestic (VN)','Other'];
+const CUST_ROLES = ['Retailer','Distributor','Sourcing Agent','Khác'];
+const SALES_CHANNELS = ['Offline','E-commerce','Omni-channel'];
+const ACCOUNT_SIZES = ['A','B','C','P'];
+const ACCOUNT_SIZE_DEFS = {
+  A: 'Doanh thu ≥$100K/năm (12 tháng gần nhất) hoặc khách chiến lược',
+  B: 'Doanh thu $30K–$100K/năm',
+  C: 'Doanh thu <$30K/năm hoặc khách mới đã có đơn',
+  P: 'Prospect, chưa từng đặt hàng (khớp với Phân loại = LEAD)'
+};
+const STRATEGIC_OPTIONS = ['Có','Không'];
+const PRODUCT_CATEGORIES = ['Khay','Tô','Hộp / thùng / office','Khung gương / Khung hình','Bàn / Ghế / Tủ','Kệ','Tấm lót','Thớt','Muỗng nĩa','Game','Trang trí','Khác'];
+const WIN_LOSS_REASONS = ['Giá cạnh tranh hơn','Thời gian giao hàng không đáp ứng','Chất lượng mẫu không đạt','MOQ không phù hợp','Đối thủ thắng','Khách dừng dự án','Khác'];
+const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
 
 /* ================= SEED DATA (từ file WE_SP_SU27 Sample Tracker) ================= */
 const RAW_SEED = [{"brand": "WE", "season": "SP27", "collection": "Luka", "description": "Tall Bin - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "2", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "51"}, {"brand": "WE", "season": "SP27", "collection": "Luka", "description": "Short Bin - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "2", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "51"}, {"brand": "WE", "season": "SP27", "collection": "Iro", "description": "Tall Canister - D4 H6\" - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "85"}, {"brand": "WE", "season": "SP27", "collection": "Iro", "description": "Short Canister - D5 H4\" - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "85"}, {"brand": "WE", "season": "SP27", "collection": "JM Black", "description": "Folding Mirror - 24x60\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-20 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "89"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Box w. lid - D5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Coaster - set of 4 - D4\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Nut Bowl - D4\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box S - D4.5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box M - D5.75\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box L - D7\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Round tray S - D12\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Round tray L - D18\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Rect Tray - 14x18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Rect Tray w. leg - 14x18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Round Tray - D18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Round Tray w. leg - D18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "2x3\" Photo Frame", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "2x6\" Photo Frame", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 12x12\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 9x9\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 14.5x8.5”", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 22x29\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V1", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "2", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V2", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "2", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V3", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V1", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V2", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V3", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V1", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V2", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V3", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Wood", "description": "Jar - D3.5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "97"}, {"brand": "WE", "season": "SU27", "collection": "Bent Wood", "description": "Serve Tray - D13\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "97"}, {"brand": "WE", "season": "HO26", "collection": "Mini Tree (WEK)", "description": "Mini Tree - dark walnut", "projectStatus": "Color review", "confirmedETD": null, "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "86"}, {"brand": "WE", "season": "SU27", "collection": "JM Slim tray", "description": "Slim Lacquer Tray with Cork - set of 3 sizes - 2 colorways", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-19 00:00:00", "qty": "6", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "95"}, {"brand": "WE", "season": "SU27", "collection": "WE Kids", "description": "Geo Hook Shelf - 9”H X 22”W X 4.5”D", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-17 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "98"}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Divider - adjust hinges", "projectStatus": "Construction review", "confirmedETD": "Can revise CD kept sample for Brand trip review first; additional sample will be submited later", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 12.2x12.2\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 9.3x21.8\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 17.9x29.2\"", "projectStatus": "Assorted without physical sample", "confirmedETD": "2026-05-04 00:00:00", "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Butler Stand - 18x28\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Wall Mirror - 30x30\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Floor Mirror - 30x72\"", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "8x10 Gallery Frame - 16x20\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "8x10 Gallery Frame - 18x24\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Book Stand", "projectStatus": "Revise thickness + Change to KD structure - under investigation", "confirmedETD": null, "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Short Bin - round 2", "projectStatus": "Revise Dimension", "confirmedETD": "2026-04-10 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Olev", "description": "Short Object", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Olev", "description": "Tall Object", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Lacquer Bowl - 18x18\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Lacquer Bowl - 14x14\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Catchall Tray - D18\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Catchall Tray - D14\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Cheese Knives - set of 3", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Napkin ring - D1.5\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Shaker - D1.75\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Serve Bowl - D11.5\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Serve Plate - 3x6\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}];
@@ -525,13 +805,57 @@ function attachRecordsListener(){
   });
 }
 
+/* ---- Customers ---- */
+async function saveCustomerDoc(id, data){ await customersCollection().doc(id).set(data); }
+async function deleteCustomerDoc(id){ await customersCollection().doc(id).delete(); }
+let unsubscribeCustomers = null;
+function attachCustomersListener(){
+  if(unsubscribeCustomers){ unsubscribeCustomers(); unsubscribeCustomers = null; }
+  unsubscribeCustomers = customersCollection().onSnapshot(snap => {
+    customers = snap.docs.map(d => d.data());
+    customers.sort((a,b) => (a.companyName||'').localeCompare(b.companyName||''));
+    if(currentModule === 'customers') renderCustomersTable();
+    populateCustomerSelect();
+    if(currentModule === 'opportunities') renderOpportunitiesView();
+  }, err => {
+    console.error('Firestore listen error (customers)', err);
+    showToast('Lỗi kết nối dữ liệu khách hàng: ' + err.message);
+  });
+}
+
+/* ---- Opportunities ---- */
+async function saveOpportunityDoc(id, data){ await opportunitiesCollection().doc(id).set(data); }
+async function deleteOpportunityDoc(id){ await opportunitiesCollection().doc(id).delete(); }
+let unsubscribeOpportunities = null;
+function attachOpportunitiesListener(){
+  if(unsubscribeOpportunities){ unsubscribeOpportunities(); unsubscribeOpportunities = null; }
+  unsubscribeOpportunities = opportunitiesCollection().onSnapshot(snap => {
+    opportunities = snap.docs.map(d => d.data());
+    opportunities.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if(currentModule === 'opportunities') renderOpportunitiesView();
+  }, err => {
+    console.error('Firestore listen error (opportunities)', err);
+    showToast('Lỗi kết nối dữ liệu cơ hội: ' + err.message);
+  });
+}
+
 /* ================= STATE ================= */
 let records = [];
+let customers = [];
+let opportunities = [];
 let currentUser = '';
 let currentView = 'table';
+let currentModule = 'samples';
+let oppView = 'table';
 let editingId = null;
+let editingCustomerId = null;
+let editingOppId = null;
 let pendingImage = null;
 let pendingDeleteId = null;
+let pendingDeleteType = 'sample';
+let pendingOpportunityIdForSample = null;
+let oppActivityLogDraft = [];
+let pendingReturnToOpportunity = false;
 let appStarted = false;
 
 const PROD_STAGES = ['Chờ bắt đầu','Cutting','Painting','Hoàn thiện','Hoàn tất - chờ gửi'];
@@ -557,6 +881,8 @@ async function startApp(){
     console.error('Seed error', e);
   }
   attachRecordsListener();
+  attachCustomersListener();
+  attachOpportunitiesListener();
 }
 
 auth.onAuthStateChanged(user => {
@@ -673,17 +999,50 @@ function populateFilterOptions(){
   const brands = [...new Set(records.map(r=>r.brand).filter(Boolean))].sort();
   const seasons = [...new Set(records.map(r=>r.season).filter(Boolean))].sort();
   const collections = [...new Set(records.map(r=>r.collection).filter(Boolean))].sort();
-  const persons = [...new Set(records.map(r=>r.person).filter(Boolean))].sort();
 
   fillSelect('filterBrand', brands, 'Tất cả brand');
   fillSelect('filterSeason', seasons, 'Tất cả season');
   fillSelect('filterCollection', collections, 'Tất cả collection');
-  fillSelect('filterPerson', persons, 'Tất cả người phụ trách');
+  fillSelect('filterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
 
   fillDatalist('brandList', brands);
   fillDatalist('seasonList', seasons);
   fillDatalist('collectionList', collections);
-  fillDatalist('personList', persons);
+}
+
+/* ================= STATIC DROPDOWNS (danh mục cố định) ================= */
+function initStaticDropdowns(){
+  fillSelect('f_person', TEAM_MEMBERS, '— Chọn người phụ trách —');
+
+  fillSelect('c_person', TEAM_MEMBERS, '— Chọn —');
+  fillSelect('c_market', MARKETS, '— Chọn —');
+  fillSelect('c_role', CUST_ROLES, '— Chọn —');
+  fillSelect('c_channel', SALES_CHANNELS, '— Chọn —');
+  fillSelect('c_accountSize', ACCOUNT_SIZES, '— Chọn —');
+  fillSelect('c_strategic', STRATEGIC_OPTIONS, '— Chọn —');
+
+  fillSelect('o_type', OPP_TYPES, '— Chọn —');
+  fillSelect('o_classification', OPP_CLASSES, '— Chọn —');
+  fillSelect('o_productCategory', PRODUCT_CATEGORIES, '— Chọn —');
+  fillSelect('o_priority', OPP_PRIORITIES, '— Chọn —');
+  fillSelect('o_status', OPP_STATUSES, '— Chọn —');
+  fillSelect('o_winLossReason', WIN_LOSS_REASONS, '— Chọn —');
+
+  fillSelect('oppFilterType', OPP_TYPES, 'Tất cả loại cơ hội');
+  fillSelect('oppFilterStatus', OPP_STATUSES, 'Tất cả trạng thái');
+  fillSelect('oppFilterMarket', MARKETS, 'Tất cả thị trường');
+  fillSelect('oppFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
+
+  fillSelect('custFilterMarket', MARKETS, 'Tất cả thị trường');
+  fillSelect('custFilterAccountSize', ACCOUNT_SIZES, 'Tất cả quy mô tài khoản');
+}
+
+function populateCustomerSelect(){
+  const sel = document.getElementById('o_customerId');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Chọn khách hàng —</option>' +
+    customers.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.companyName)}</option>`).join('');
+  if(cur) sel.value = cur;
 }
 function fillSelect(id, values, allLabel){
   const el = document.getElementById(id);
@@ -796,6 +1155,526 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+/* ================= NAV / MODULE SWITCHING ================= */
+function switchModule(mod){
+  currentModule = mod;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.module === mod));
+  document.getElementById('samplesModule').style.display = mod === 'samples' ? 'block' : 'none';
+  document.getElementById('opportunitiesModule').style.display = mod === 'opportunities' ? 'block' : 'none';
+  document.getElementById('customersModule').style.display = mod === 'customers' ? 'block' : 'none';
+
+  const addBtn = document.getElementById('addBtn');
+  if(mod === 'samples'){
+    document.getElementById('appTitle').textContent = 'Theo dõi mẫu phát triển';
+    document.getElementById('appSubtitle').textContent = 'Cat Dang Handicraft — nhiều brand, nhiều thành viên';
+    addBtn.textContent = '+ Thêm mẫu';
+    renderAll();
+  } else if(mod === 'opportunities'){
+    document.getElementById('appTitle').textContent = 'Cơ hội bán hàng';
+    document.getElementById('appSubtitle').textContent = 'Chào hàng & phát triển sản phẩm mới';
+    addBtn.textContent = '+ Thêm cơ hội';
+    renderOpportunitiesView();
+  } else {
+    document.getElementById('appTitle').textContent = 'Khách hàng';
+    document.getElementById('appSubtitle').textContent = 'Danh sách khách hàng — dùng để tự động điền thông tin cơ hội';
+    addBtn.textContent = '+ Thêm khách hàng';
+    renderCustomersTable();
+  }
+}
+
+function handleAddBtnClick(){
+  if(currentModule === 'samples') openAdd();
+  else if(currentModule === 'opportunities') openAddOpportunity();
+  else openAddCustomer();
+}
+
+/* ================= MODULE: KHÁCH HÀNG ================= */
+function customerById(id){ return customers.find(c => c.id === id); }
+
+function getFilteredCustomers(){
+  const q = document.getElementById('custSearchInput').value.trim().toLowerCase();
+  const market = document.getElementById('custFilterMarket').value;
+  const size = document.getElementById('custFilterAccountSize').value;
+  return customers.filter(c => {
+    if(market && c.market !== market) return false;
+    if(size && c.accountSize !== size) return false;
+    if(q){
+      const hay = [c.companyName, c.customerCode, c.contactPerson].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderCustomersTable(){
+  const list = getFilteredCustomers();
+  const container = document.getElementById('custTableView');
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có khách hàng nào</h3><p>Bấm "+ Thêm khách hàng" để tạo mới.</p></div>`;
+    return;
+  }
+  const rows = list.map(c => `
+    <tr data-id="${c.id}">
+      <td>${escapeHtml(c.companyName)}</td>
+      <td>${escapeHtml(c.customerCode || '—')}</td>
+      <td>${escapeHtml(c.market || '—')}</td>
+      <td>${escapeHtml(c.role || '—')}</td>
+      <td>${escapeHtml(c.channel || '—')}</td>
+      <td><span class="badge production">${escapeHtml(c.accountSize || '—')}</span></td>
+      <td>${c.strategic === 'Có' ? '<span class="badge outcome-approved">Có</span>' : escapeHtml(c.strategic || '—')}</td>
+      <td>${escapeHtml(c.personInCharge || '—')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn cust-edit-btn" data-id="${c.id}" title="Sửa">✎</button>
+          <button class="icon-btn cust-del-btn" data-id="${c.id}" title="Xoá">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Khách hàng / Công ty</th><th>Mã KH</th><th>Thị trường</th><th>Vai trò</th>
+        <th>Kênh bán</th><th>Quy mô TK</th><th>Chiến lược?</th><th>Người phụ trách</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  container.querySelectorAll('.cust-edit-btn').forEach(b => b.addEventListener('click', e => openEditCustomer(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.cust-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'customer')));
+}
+
+function resetCustomerForm(){
+  ['c_name','c_code','c_contact','c_note'].forEach(id => document.getElementById(id).value = '');
+  ['c_person','c_market','c_role','c_channel','c_accountSize','c_strategic'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('c_nameHint').textContent = '';
+  document.getElementById('custDeleteBtn').style.display = 'none';
+}
+
+function openAddCustomer(){
+  editingCustomerId = null;
+  resetCustomerForm();
+  document.getElementById('custModalTitle').textContent = 'Thêm khách hàng mới';
+  document.getElementById('customerOverlay').classList.add('open');
+}
+
+function openEditCustomer(id){
+  const c = customerById(id);
+  if(!c) return;
+  editingCustomerId = id;
+  resetCustomerForm();
+  document.getElementById('custModalTitle').textContent = 'Sửa khách hàng';
+  document.getElementById('c_name').value = c.companyName || '';
+  document.getElementById('c_code').value = c.customerCode || '';
+  document.getElementById('c_person').value = c.personInCharge || '';
+  document.getElementById('c_market').value = c.market || '';
+  document.getElementById('c_role').value = c.role || '';
+  document.getElementById('c_channel').value = c.channel || '';
+  document.getElementById('c_accountSize').value = c.accountSize || '';
+  document.getElementById('c_strategic').value = c.strategic || '';
+  document.getElementById('c_contact').value = c.contactPerson || '';
+  document.getElementById('c_note').value = c.note || '';
+  document.getElementById('custDeleteBtn').style.display = 'inline-block';
+  document.getElementById('customerOverlay').classList.add('open');
+}
+
+function closeCustomerModal(){
+  document.getElementById('customerOverlay').classList.remove('open');
+}
+
+// Returns the id of the newly created/updated customer, or null if validation failed.
+async function saveCustomer(e, opts){
+  e.preventDefault();
+  opts = opts || {};
+  const name = document.getElementById('c_name').value.trim();
+  const hintEl = document.getElementById('c_nameHint');
+  hintEl.textContent = '';
+  if(!name){
+    hintEl.textContent = 'Vui lòng nhập tên khách hàng / công ty.';
+    hintEl.style.color = 'var(--rust)';
+    return null;
+  }
+  const dup = customers.find(c => c.companyName.trim().toLowerCase() === name.toLowerCase() && c.id !== editingCustomerId);
+  if(dup){
+    hintEl.textContent = 'Tên này đã tồn tại trong Danh sách khách hàng — vui lòng dùng tên khác hoặc chọn khách hàng đó ở phần Cơ hội.';
+    hintEl.style.color = 'var(--rust)';
+    return null;
+  }
+  const now = new Date().toISOString();
+  const formData = {
+    companyName: name,
+    customerCode: document.getElementById('c_code').value.trim(),
+    personInCharge: document.getElementById('c_person').value,
+    market: document.getElementById('c_market').value,
+    role: document.getElementById('c_role').value,
+    channel: document.getElementById('c_channel').value,
+    accountSize: document.getElementById('c_accountSize').value,
+    strategic: document.getElementById('c_strategic').value,
+    contactPerson: document.getElementById('c_contact').value.trim(),
+    note: document.getElementById('c_note').value.trim(),
+  };
+  try{
+    let id = editingCustomerId;
+    if(id){
+      const existing = customerById(id);
+      await saveCustomerDoc(id, Object.assign({}, existing, formData, {id, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã cập nhật khách hàng');
+    } else {
+      id = 'kh-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      await saveCustomerDoc(id, Object.assign({id}, formData, {createdAt: now, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã thêm khách hàng mới');
+    }
+    if(!opts.keepOpen) closeCustomerModal();
+    return id;
+  }catch(err){
+    console.error('Save customer error', err);
+    showToast('Lỗi lưu khách hàng: ' + err.message);
+    return null;
+  }
+}
+
+function buildCustomerInfoBox(c){
+  if(!c) return '<div class="info-empty">Chọn khách hàng để xem thông tin.</div>';
+  const items = [
+    ['Mã KH', c.customerCode || '—'],
+    ['Thị trường', c.market || '—'],
+    ['Vai trò KH', c.role || '—'],
+    ['Kênh bán', c.channel || '—'],
+    ['Quy mô TK', c.accountSize || '—'],
+    ['Chiến lược?', c.strategic || '—'],
+    ['Người liên hệ', c.contactPerson || '—'],
+    ['Người phụ trách', c.personInCharge || '—'],
+  ];
+  return '<div class="info-grid">' + items.map(([k,v]) => `<div class="item"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`).join('') + '</div>';
+}
+
+/* ================= MODULE: CƠ HỘI BÁN HÀNG ================= */
+function opportunityById(id){ return opportunities.find(o => o.id === id); }
+
+function isOppFollowupOverdue(o){
+  if(OPP_CLOSED_STATUSES.includes(o.status) || o.status === 'Tạm dừng') return false;
+  if(!o.nextFollowUp) return false;
+  const d = new Date(o.nextFollowUp);
+  if(isNaN(d.getTime())) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d < today;
+}
+
+function getFilteredOpportunities(){
+  const q = document.getElementById('oppSearchInput').value.trim().toLowerCase();
+  const type = document.getElementById('oppFilterType').value;
+  const status = document.getElementById('oppFilterStatus').value;
+  const market = document.getElementById('oppFilterMarket').value;
+  const person = document.getElementById('oppFilterPerson').value;
+  const onlyOverdue = document.getElementById('oppFilterOverdue').checked;
+
+  return opportunities.filter(o => {
+    const c = customerById(o.customerId);
+    if(type && o.opportunityType !== type) return false;
+    if(status && o.status !== status) return false;
+    if(market && (!c || c.market !== market)) return false;
+    if(person && (!c || c.personInCharge !== person)) return false;
+    if(onlyOverdue && !isOppFollowupOverdue(o)) return false;
+    if(q){
+      const hay = [c ? c.companyName : '', c ? c.customerCode : '', o.productDesc, o.productCategory].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderOpportunitiesView(){
+  populateCustomerSelect();
+  renderOppStats();
+  if(oppView === 'table') renderOppTable();
+  else if(oppView === 'kanban') renderOppKanban();
+  else renderOppDashboard();
+}
+
+function renderOppStats(){
+  const total = opportunities.length;
+  const closed = opportunities.filter(o => OPP_CLOSED_STATUSES.includes(o.status));
+  const won = opportunities.filter(o => o.status === 'Thắng đơn');
+  const winRate = closed.length ? Math.round(won.length / closed.length * 100) : 0;
+  const openValue = opportunities.filter(o => !OPP_CLOSED_STATUSES.includes(o.status) && o.status !== 'Tạm dừng')
+    .reduce((s,o) => s + (parseFloat(o.estimatedValue)||0), 0);
+  const overdueCount = opportunities.filter(isOppFollowupOverdue).length;
+  const html = `
+    <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số cơ hội</div></div>
+    <div class="stat-card"><div class="num">${winRate}%</div><div class="label">Tỷ lệ thắng</div></div>
+    <div class="stat-card"><div class="num">$${openValue.toLocaleString('en-US')}</div><div class="label">Pipeline đang mở</div></div>
+    <div class="stat-card overdue"><div class="num">${overdueCount}</div><div class="label">Quá hạn follow-up</div></div>
+  `;
+  document.getElementById('oppStatsRow').innerHTML = html;
+}
+
+function renderOppTable(){
+  document.getElementById('oppTableView').style.display = 'block';
+  document.getElementById('oppKanbanView').style.display = 'none';
+  document.getElementById('oppDashboardView').style.display = 'none';
+  const list = getFilteredOpportunities();
+  const container = document.getElementById('oppTableView');
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có cơ hội nào khớp</h3><p>Thử đổi bộ lọc hoặc thêm cơ hội mới.</p></div>`;
+    return;
+  }
+  const rows = list.map(o => {
+    const c = customerById(o.customerId);
+    const overdue = isOppFollowupOverdue(o);
+    return `
+      <tr class="${overdue ? 'overdue-row':''}" data-id="${o.id}">
+        <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
+        <td>${escapeHtml(o.opportunityType || '—')}</td>
+        <td>${escapeHtml(o.productDesc || '—')}</td>
+        <td>${escapeHtml(c ? c.market : '—')}</td>
+        <td>${o.estimatedValue ? '$'+Number(o.estimatedValue).toLocaleString('en-US') : '—'}</td>
+        <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
+        <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
+        <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
+        <td>${escapeHtml(c ? c.personInCharge : '—')}</td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn opp-edit-btn" data-id="${o.id}" title="Sửa">✎</button>
+            <button class="icon-btn opp-del-btn" data-id="${o.id}" title="Xoá">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Khách hàng</th><th>Loại cơ hội</th><th>Sản phẩm / Inquiry</th><th>Thị trường</th>
+        <th>Giá trị (USD)</th><th>Ưu tiên</th><th>Trạng thái</th><th>Follow-up kế tiếp</th><th>Phụ trách</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  container.querySelectorAll('.opp-edit-btn').forEach(b => b.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.opp-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'opportunity')));
+}
+
+function renderOppKanban(){
+  document.getElementById('oppTableView').style.display = 'none';
+  document.getElementById('oppKanbanView').style.display = 'block';
+  document.getElementById('oppDashboardView').style.display = 'none';
+  const list = getFilteredOpportunities();
+  const container = document.getElementById('oppKanbanView');
+  let html = '';
+  OPP_STATUSES.forEach(status => {
+    const items = list.filter(o => o.status === status);
+    html += `<div class="kanban-col">
+      <div class="kanban-col-head"><span>${escapeHtml(status)}</span><span class="count">${items.length}</span></div>
+      <div class="kanban-body">
+        ${items.map(o => {
+          const c = customerById(o.customerId);
+          return `<div class="kcard ${isOppFollowupOverdue(o)?'overdue':''}" data-id="${o.id}">
+            <div class="brand-line"><span>${escapeHtml(c ? c.companyName : '—')}</span><span>${o.estimatedValue ? '$'+Number(o.estimatedValue).toLocaleString('en-US') : ''}</span></div>
+            <div class="desc">${escapeHtml(o.productDesc || '')}</div>
+            <div class="meta">${escapeHtml(o.opportunityType || '')}${c && c.market ? ' · '+escapeHtml(c.market) : ''}</div>
+            <div class="meta">${escapeHtml(formatDateOnly(o.nextFollowUp) || '')}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  container.innerHTML = `<div class="kanban">${html}</div>`;
+  container.querySelectorAll('.kcard').forEach(c => c.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
+}
+
+function renderOppDashboard(){
+  document.getElementById('oppTableView').style.display = 'none';
+  document.getElementById('oppKanbanView').style.display = 'none';
+  document.getElementById('oppDashboardView').style.display = 'block';
+  const container = document.getElementById('oppDashboardView');
+
+  function breakdownBy(getKey, keys, opts){
+    opts = opts || {};
+    return keys.map(k => {
+      const inGroup = opportunities.filter(o => getKey(o) === k);
+      const count = inGroup.length;
+      const won = inGroup.filter(o => o.status === 'Thắng đơn').length;
+      const lost = inGroup.filter(o => o.status === 'Không thành công').length;
+      const winRate = (won+lost) ? Math.round(won/(won+lost)*100) : null;
+      const value = inGroup.reduce((s,o)=>s+(parseFloat(o.estimatedValue)||0),0);
+      return {k, count, winRate, value};
+    });
+  }
+
+  function table(title, rows, showValue, showWinRate){
+    const body = rows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.k)}</td>
+        <td>${r.count}</td>
+        ${showValue ? `<td>$${r.value.toLocaleString('en-US')}</td>` : ''}
+        ${showWinRate ? `<td>${r.winRate===null?'—':r.winRate+'%'}</td>` : ''}
+      </tr>`).join('');
+    return `<div class="dash-card"><h3>${escapeHtml(title)}</h3>
+      <table class="dash-table"><thead><tr><th>${escapeHtml(title)}</th><th>SL</th>${showValue?'<th>Giá trị</th>':''}${showWinRate?'<th>Tỷ lệ thắng</th>':''}</tr></thead>
+      <tbody>${body || '<tr><td colspan="4">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
+  }
+
+  const byType = breakdownBy(o=>o.opportunityType, OPP_TYPES);
+  const byStatus = OPP_STATUSES.map(s => ({k:s, count: opportunities.filter(o=>o.status===s).length}));
+  const byMarket = breakdownBy(o => { const c=customerById(o.customerId); return c?c.market:''; }, MARKETS);
+  const byRole = breakdownBy(o => { const c=customerById(o.customerId); return c?c.role:''; }, CUST_ROLES);
+  const bySize = breakdownBy(o => { const c=customerById(o.customerId); return c?c.accountSize:''; }, ACCOUNT_SIZES);
+  const byCategory = breakdownBy(o=>o.productCategory, PRODUCT_CATEGORIES);
+  const byReason = WIN_LOSS_REASONS.map(r => ({k:r, count: opportunities.filter(o=>o.winLossReason===r).length}));
+
+  container.innerHTML = `
+    <div class="dash-grid">
+      ${table('Theo loại cơ hội', byType, true, true)}
+      ${table('Theo trạng thái', byStatus, false, false)}
+      ${table('Theo thị trường', byMarket, false, true)}
+      ${table('Theo vai trò khách hàng', byRole, false, true)}
+      ${table('Theo quy mô tài khoản', bySize, false, true)}
+      ${table('Theo ngành hàng sản phẩm', byCategory, false, true)}
+      ${table('Theo lý do thắng/thua', byReason, false, false)}
+    </div>`;
+}
+
+function switchOppView(v){
+  oppView = v;
+  document.getElementById('oppViewTableBtn').classList.toggle('active', v==='table');
+  document.getElementById('oppViewKanbanBtn').classList.toggle('active', v==='kanban');
+  document.getElementById('oppViewDashboardBtn').classList.toggle('active', v==='dashboard');
+  renderOpportunitiesView();
+}
+
+function resetOppForm(){
+  ['o_week','o_estimatedValue','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput'].forEach(id => document.getElementById(id).value = '');
+  ['o_dateReceived','o_deadline','o_nextFollowUp'].forEach(id => document.getElementById(id).value = '');
+  ['o_type','o_classification','o_customerId','o_productCategory','o_priority','o_status','o_winLossReason'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('o_winLossWrap').style.display = 'none';
+  document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(null);
+  document.getElementById('oppDeleteBtn').style.display = 'none';
+  document.getElementById('oppNpdLinkWrap').style.display = 'none';
+  oppActivityLogDraft = [];
+  renderOppLogList();
+}
+
+function renderOppLogList(){
+  const el = document.getElementById('oppLogList');
+  if(!oppActivityLogDraft.length){
+    el.innerHTML = '<div class="info-empty">Chưa có log nào.</div>';
+    return;
+  }
+  el.innerHTML = oppActivityLogDraft.slice().reverse().map(item => `
+    <div class="log-item"><span class="log-date">${escapeHtml(formatDateOnly(item.date))}</span>${escapeHtml(item.text)}</div>
+  `).join('');
+}
+
+function openAddOpportunity(){
+  editingOppId = null;
+  resetOppForm();
+  document.getElementById('oppModalTitle').textContent = 'Thêm cơ hội mới';
+  document.getElementById('oppOverlay').classList.add('open');
+}
+
+function openEditOpportunity(id){
+  const o = opportunityById(id);
+  if(!o) return;
+  editingOppId = id;
+  resetOppForm();
+  document.getElementById('oppModalTitle').textContent = 'Sửa cơ hội';
+  document.getElementById('o_week').value = o.week || '';
+  document.getElementById('o_dateReceived').value = o.dateReceived || '';
+  document.getElementById('o_type').value = o.opportunityType || '';
+  document.getElementById('o_classification').value = o.classification || '';
+  document.getElementById('o_customerId').value = o.customerId || '';
+  document.getElementById('o_productCategory').value = o.productCategory || '';
+  document.getElementById('o_estimatedValue').value = o.estimatedValue || '';
+  document.getElementById('o_productDesc').value = o.productDesc || '';
+  document.getElementById('o_requirements').value = o.requirements || '';
+  document.getElementById('o_deadline').value = o.deadline || '';
+  document.getElementById('o_priority').value = o.priority || '';
+  document.getElementById('o_status').value = o.status || '';
+  document.getElementById('o_winLossReason').value = o.winLossReason || '';
+  document.getElementById('o_nextAction').value = o.nextAction || '';
+  document.getElementById('o_nextFollowUp').value = o.nextFollowUp || '';
+  document.getElementById('o_customerFeedback').value = o.customerFeedback || '';
+  document.getElementById('o_notes').value = o.notes || '';
+  document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
+  document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(o.status) ? 'block' : 'none';
+  oppActivityLogDraft = (o.activityLog || []).slice();
+  renderOppLogList();
+  document.getElementById('oppDeleteBtn').style.display = 'inline-block';
+
+  if(o.opportunityType === 'Phát triển mẫu mới (NPD)'){
+    document.getElementById('oppNpdLinkWrap').style.display = 'block';
+    const linkedCount = (o.linkedSampleIds || []).length;
+    document.getElementById('oppLinkRow').textContent = linkedCount
+      ? `Đã tạo ${linkedCount} mẫu từ cơ hội này trong Theo dõi mẫu.`
+      : `Cơ hội NPD này chưa có mẫu nào trong Theo dõi mẫu.`;
+  }
+  document.getElementById('oppOverlay').classList.add('open');
+}
+
+function closeOppModal(){
+  document.getElementById('oppOverlay').classList.remove('open');
+}
+
+async function saveOpportunity(e){
+  e.preventDefault();
+  const customerId = document.getElementById('o_customerId').value;
+  if(!customerId){
+    showToast('Vui lòng chọn Khách hàng / Công ty (tạo mới nếu chưa có).');
+    return;
+  }
+  const status = document.getElementById('o_status').value;
+  const now = new Date().toISOString();
+  const formData = {
+    week: document.getElementById('o_week').value.trim(),
+    dateReceived: document.getElementById('o_dateReceived').value,
+    opportunityType: document.getElementById('o_type').value,
+    classification: document.getElementById('o_classification').value,
+    customerId,
+    productCategory: document.getElementById('o_productCategory').value,
+    estimatedValue: document.getElementById('o_estimatedValue').value.trim(),
+    productDesc: document.getElementById('o_productDesc').value.trim(),
+    requirements: document.getElementById('o_requirements').value.trim(),
+    deadline: document.getElementById('o_deadline').value,
+    priority: document.getElementById('o_priority').value,
+    status,
+    winLossReason: OPP_CLOSED_STATUSES.includes(status) ? document.getElementById('o_winLossReason').value : '',
+    nextAction: document.getElementById('o_nextAction').value.trim(),
+    nextFollowUp: document.getElementById('o_nextFollowUp').value,
+    customerFeedback: document.getElementById('o_customerFeedback').value.trim(),
+    notes: document.getElementById('o_notes').value.trim(),
+    activityLog: oppActivityLogDraft,
+  };
+  try{
+    if(editingOppId){
+      const existing = opportunityById(editingOppId);
+      await saveOpportunityDoc(editingOppId, Object.assign({}, existing, formData, {id: editingOppId, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã cập nhật cơ hội');
+    } else {
+      const id = 'ch-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      await saveOpportunityDoc(id, Object.assign({id}, formData, {linkedSampleIds: [], createdAt: now, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã thêm cơ hội mới');
+    }
+    closeOppModal();
+  }catch(err){
+    console.error('Save opportunity error', err);
+    showToast('Lỗi lưu cơ hội: ' + err.message);
+  }
+}
+
+function openCreateSampleFromOpportunity(){
+  const o = opportunityById(editingOppId);
+  if(!o) return;
+  const c = customerById(o.customerId);
+  closeOppModal();
+  editingId = null;
+  resetForm();
+  document.getElementById('modalTitle').textContent = 'Thêm mẫu (từ cơ hội bán hàng)';
+  document.getElementById('f_brand').value = c ? c.companyName : '';
+  document.getElementById('f_description').value = o.productDesc || '';
+  document.getElementById('f_collection').value = o.productCategory || '';
+  document.getElementById('f_person').value = c ? c.personInCharge : '';
+  document.getElementById('f_qty').value = '';
+  pendingOpportunityIdForSample = o.id;
+  switchModule('samples');
+  document.getElementById('recordOverlay').classList.add('open');
+}
+
 /* ================= MODAL: ADD / EDIT ================= */
 function resetForm(){
   ['f_brand','f_season','f_collection','f_soDonMau','f_description','f_person','f_qty',
@@ -808,6 +1687,7 @@ function resetForm(){
   document.getElementById('imgPreview').style.display = 'none';
   document.getElementById('f_image').value = '';
   pendingImage = null;
+  pendingOpportunityIdForSample = null;
   setStatusGroupUI('production');
   document.getElementById('deleteBtn').style.display = 'none';
   document.getElementById('historyBox').style.display = 'none';
@@ -944,11 +1824,15 @@ async function saveRecord(e){
       showToast('Đã cập nhật mẫu');
     } else {
       const id = 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      if(pendingOpportunityIdForSample) formData.opportunityId = pendingOpportunityIdForSample;
       const rec = Object.assign({id}, formData, {
         createdAt: now, updatedAt: now, updatedBy: currentUser,
         history: [{ts: now, user: currentUser, action: 'Tạo mới mẫu'}]
       });
       await saveSampleDoc(id, rec);
+      if(pendingOpportunityIdForSample){
+        await linkSampleToOpportunity(pendingOpportunityIdForSample, id);
+      }
       showToast('Đã thêm mẫu mới');
     }
     closeModal();
@@ -956,6 +1840,14 @@ async function saveRecord(e){
     console.error('Save error', err);
     showToast('Lỗi lưu dữ liệu: ' + err.message);
   }
+}
+
+async function linkSampleToOpportunity(oppId, sampleId){
+  const opp = opportunities.find(o => o.id === oppId);
+  if(!opp) return;
+  const linkedSampleIds = (opp.linkedSampleIds || []).slice();
+  if(!linkedSampleIds.includes(sampleId)) linkedSampleIds.push(sampleId);
+  await saveOpportunityDoc(oppId, Object.assign({}, opp, {linkedSampleIds, updatedAt: new Date().toISOString()}));
 }
 
 function summarizeChange(oldRec, newData){
@@ -966,16 +1858,34 @@ function summarizeChange(oldRec, newData){
   return 'Cập nhật thông tin mẫu';
 }
 
-function askDelete(id){
+function askDelete(id, type){
   pendingDeleteId = id;
+  pendingDeleteType = type || 'sample';
+  const titles = {
+    sample: 'Xoá mẫu này?',
+    customer: 'Xoá khách hàng này?',
+    opportunity: 'Xoá cơ hội này?'
+  };
+  document.getElementById('confirmTitle').textContent = titles[pendingDeleteType] || 'Xoá mục này?';
   document.getElementById('confirmOverlay').classList.add('open');
 }
 
 async function confirmDelete(){
   if(pendingDeleteId){
     try{
-      await deleteSampleDoc(pendingDeleteId);
-      showToast('Đã xoá mẫu');
+      if(pendingDeleteType === 'customer'){
+        await deleteCustomerDoc(pendingDeleteId);
+        showToast('Đã xoá khách hàng');
+        closeCustomerModal();
+      } else if(pendingDeleteType === 'opportunity'){
+        await deleteOpportunityDoc(pendingDeleteId);
+        showToast('Đã xoá cơ hội');
+        closeOppModal();
+      } else {
+        await deleteSampleDoc(pendingDeleteId);
+        showToast('Đã xoá mẫu');
+        closeModal();
+      }
     }catch(err){
       console.error('Delete error', err);
       showToast('Lỗi xoá dữ liệu: ' + err.message);
@@ -983,7 +1893,6 @@ async function confirmDelete(){
     pendingDeleteId = null;
   }
   document.getElementById('confirmOverlay').classList.remove('open');
-  closeModal();
 }
 
 /* ================= EXPORT ================= */
@@ -999,6 +1908,28 @@ function exportCsv(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'mau-phat-trien-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportOppCsv(){
+  const list = getFilteredOpportunities();
+  const headers = ['Khách hàng','Mã KH','Thị trường','Vai trò KH','Kênh bán','Quy mô TK','Chiến lược?','Người liên hệ','Người phụ trách',
+    'Loại cơ hội','Phân loại','Ngành hàng','Sản phẩm/Inquiry','Yêu cầu chính','Giá trị (USD)','Deadline','Ưu tiên','Trạng thái',
+    'Hành động tiếp theo','Follow-up kế tiếp','Phản hồi khách','Lý do thắng/thua','Ghi chú'];
+  const rows = list.map(o => {
+    const c = customerById(o.customerId) || {};
+    return [
+      c.companyName, c.customerCode, c.market, c.role, c.channel, c.accountSize, c.strategic, c.contactPerson, c.personInCharge,
+      o.opportunityType, o.classification, o.productCategory, o.productDesc, o.requirements, o.estimatedValue,
+      formatDateOnly(o.deadline), o.priority, o.status, o.nextAction, formatDateOnly(o.nextFollowUp), o.customerFeedback, o.winLossReason, o.notes
+    ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'co-hoi-ban-hang-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1020,8 +1951,76 @@ function openImageLightbox(src){
   document.getElementById('imageOverlay').classList.add('open');
 }
 
+function closeCustomerModalMaybeReturn(){
+  closeCustomerModal();
+  if(pendingReturnToOpportunity){
+    pendingReturnToOpportunity = false;
+    document.getElementById('oppOverlay').classList.add('open');
+  }
+}
+
 function bindEvents(){
-  document.getElementById('addBtn').addEventListener('click', openAdd);
+  document.getElementById('addBtn').addEventListener('click', handleAddBtnClick);
+
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchModule(btn.dataset.module));
+  });
+
+  /* ---- Customers module ---- */
+  document.getElementById('custCancelBtn').addEventListener('click', closeCustomerModalMaybeReturn);
+  document.getElementById('custDeleteBtn').addEventListener('click', () => askDelete(editingCustomerId, 'customer'));
+  document.getElementById('customerOverlay').addEventListener('click', e => { if(e.target.id === 'customerOverlay') closeCustomerModalMaybeReturn(); });
+  document.getElementById('customerForm').addEventListener('submit', async e => {
+    const wasReturning = pendingReturnToOpportunity;
+    const id = await saveCustomer(e, {keepOpen: false});
+    if(id && wasReturning){
+      pendingReturnToOpportunity = false;
+      document.getElementById('o_customerId').value = id;
+      document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(id));
+      document.getElementById('oppOverlay').classList.add('open');
+    }
+  });
+  ['custSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderCustomersTable));
+  ['custFilterMarket','custFilterAccountSize'].forEach(id => document.getElementById(id).addEventListener('change', renderCustomersTable));
+
+  /* ---- Opportunities module ---- */
+  document.getElementById('oppCancelBtn').addEventListener('click', closeOppModal);
+  document.getElementById('oppDeleteBtn').addEventListener('click', () => askDelete(editingOppId, 'opportunity'));
+  document.getElementById('oppOverlay').addEventListener('click', e => { if(e.target.id === 'oppOverlay') closeOppModal(); });
+  document.getElementById('oppForm').addEventListener('submit', saveOpportunity);
+  document.getElementById('o_customerId').addEventListener('change', e => {
+    document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(e.target.value));
+  });
+  document.getElementById('o_status').addEventListener('change', e => {
+    document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(e.target.value) ? 'block' : 'none';
+  });
+  document.getElementById('oppNewCustomerBtn').addEventListener('click', () => {
+    document.getElementById('oppOverlay').classList.remove('open');
+    pendingReturnToOpportunity = true;
+    openAddCustomer();
+  });
+  document.getElementById('oppAddLogBtn').addEventListener('click', () => {
+    const input = document.getElementById('o_logInput');
+    const text = input.value.trim();
+    if(!text) return;
+    oppActivityLogDraft.push({date: new Date().toISOString().slice(0,10), text, user: currentUser});
+    input.value = '';
+    renderOppLogList();
+  });
+  document.getElementById('o_logInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('oppAddLogBtn').click(); }
+  });
+  document.getElementById('oppCreateSampleBtn').addEventListener('click', openCreateSampleFromOpportunity);
+
+  ['oppSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderOpportunitiesView));
+  ['oppFilterType','oppFilterStatus','oppFilterMarket','oppFilterPerson','oppFilterOverdue'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderOpportunitiesView);
+  });
+  document.getElementById('oppViewTableBtn').addEventListener('click', () => switchOppView('table'));
+  document.getElementById('oppViewKanbanBtn').addEventListener('click', () => switchOppView('kanban'));
+  document.getElementById('oppViewDashboardBtn').addEventListener('click', () => switchOppView('dashboard'));
+  document.getElementById('oppExportBtn').addEventListener('click', exportOppCsv);
+
   document.getElementById('imageOverlay').addEventListener('click', () => {
     document.getElementById('imageOverlay').classList.remove('open');
   });
@@ -1085,6 +2084,7 @@ function switchView(v){
   if(v==='table') renderTable(); else renderKanban();
 }
 
+initStaticDropdowns();
 bindEvents();
 </script>
 </body>
