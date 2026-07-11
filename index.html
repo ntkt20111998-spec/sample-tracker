@@ -590,12 +590,15 @@ async function handleLoginSubmit(){
     }
     btn.disabled = true;
     btn.textContent = 'Đang kiểm tra...';
+    // Save the name BEFORE signing in so onAuthStateChanged (which can fire
+    // synchronously as part of the sign-in promise resolving) already sees it.
+    saveDisplayName(name);
+    currentUser = name;
     try{
       await auth.signInWithEmailAndPassword(AUTH_EMAIL, passcode);
-      saveDisplayName(name);
-      currentUser = name;
       // onAuthStateChanged will detect saved name and call startApp()
     }catch(e){
+      localStorage.removeItem('display-name');
       errorEl.textContent = 'Sai passcode, vui lòng thử lại.';
       errorEl.style.display = 'block';
     }
