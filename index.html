@@ -634,6 +634,7 @@
             <input type="text" id="o_logInput" placeholder="Nhập việc vừa làm...">
             <button type="button" class="btn-ghost" id="oppAddLogBtn">+ Thêm log hôm nay</button>
           </div>
+          <div class="field-hint" id="oppLogHint">Với cơ hội đã lưu, log được lưu ngay lập tức. Với cơ hội mới chưa lưu, hãy bấm "Lưu" bên dưới sau khi thêm log để không bị mất.</div>
         </div>
         <div class="full">
           <label>Ghi chú</label>
@@ -2142,13 +2143,25 @@ function bindEvents(){
     pendingReturnToOpportunity = true;
     openAddCustomer();
   });
-  document.getElementById('oppAddLogBtn').addEventListener('click', () => {
+  document.getElementById('oppAddLogBtn').addEventListener('click', async () => {
     const input = document.getElementById('o_logInput');
     const text = input.value.trim();
     if(!text) return;
     oppActivityLogDraft.push({date: new Date().toISOString().slice(0,10), text, user: currentUser});
     input.value = '';
     renderOppLogList();
+    if(editingOppId){
+      try{
+        const existing = opportunityById(editingOppId);
+        if(existing){
+          await saveOpportunityDoc(editingOppId, Object.assign({}, existing, {activityLog: oppActivityLogDraft.slice(), updatedAt: new Date().toISOString()}));
+          showToast('Đã lưu log');
+        }
+      }catch(err){
+        console.error('Save log error', err);
+        showToast('Lỗi lưu log: ' + err.message);
+      }
+    }
   });
   document.getElementById('o_logInput').addEventListener('keydown', e => {
     if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('oppAddLogBtn').click(); }
