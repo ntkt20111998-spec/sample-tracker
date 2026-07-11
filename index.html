@@ -252,7 +252,34 @@
 
   .modal-lg .modal{max-width:760px;}
   .field-hint{font-size:11px; color:var(--ink-soft); margin-top:3px;}
-  .opp-link-row{display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; background:var(--accent-soft); border-radius:8px; font-size:12.5px;}
+  .opp-link-row{margin-top:2px;}
+
+  /* ---------- linked samples (Cơ hội <-> Theo dõi mẫu) ---------- */
+  .linked-samples{display:flex; flex-direction:column; gap:6px;}
+  .linked-sample-item{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--bg);
+    border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:12.5px;
+  }
+  .linked-sample-item:hover{border-color:var(--accent);}
+  .linked-sample-item .lsi-desc{flex:1; font-weight:600;}
+  .linked-sample-item .lsi-meta{color:var(--ink-soft); font-size:11px; white-space:nowrap;}
+
+  .opp-sample-badge{display:flex; align-items:center; gap:4px; font-size:11px; color:var(--ink-soft); margin-top:4px;}
+  .opp-sample-badge.overdue{color:var(--rust); font-weight:600;}
+  .opp-link-badge{font-size:11px; color:var(--accent); margin-top:2px;}
+
+  /* ---------- Theo dõi theo khách hàng (view con) ---------- */
+  .cust-progress-grid{display:flex; flex-direction:column; gap:14px;}
+  .cust-progress-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+  .cust-progress-card .cpc-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+  .cust-progress-card .cpc-head h3{font-family:var(--font-display); font-size:16px; margin:0;}
+  .cpc-sub{font-size:11.5px; color:var(--ink-soft);}
+  .cpc-sub.overdue-text{color:var(--rust); font-weight:600;}
+  .cust-progress-opps{display:flex; flex-direction:column; gap:12px;}
+  .cpo-block{border-top:1px dashed var(--line); padding-top:10px;}
+  .cpo-block:first-child{border-top:none; padding-top:0;}
+  .cpo-title{font-size:12.5px; font-weight:700; margin-bottom:6px; display:flex; gap:8px; align-items:center; cursor:pointer;}
+  .cpo-title:hover{color:var(--accent);}
 </style>
 </head>
 <body>
@@ -318,6 +345,7 @@
       <button id="oppViewTableBtn" class="active">Bảng</button>
       <button id="oppViewKanbanBtn">Kanban</button>
       <button id="oppViewDashboardBtn">Thống kê</button>
+      <button id="oppViewCustomerBtn">Theo khách hàng</button>
     </div>
   </div>
 
@@ -325,6 +353,7 @@
     <div id="oppTableView"></div>
     <div id="oppKanbanView" style="display:none;"></div>
     <div id="oppDashboardView" style="display:none;"></div>
+    <div id="oppCustomerProgressView" style="display:none;"></div>
   </div>
 </div>
 
@@ -612,10 +641,11 @@
         </div>
       </div>
 
-      <div id="oppNpdLinkWrap" style="display:none;">
+      <div id="oppSampleLinkWrap" style="display:none;">
+        <label style="display:block; margin-bottom:6px;">Mẫu liên kết với cơ hội này</label>
         <div class="opp-link-row" id="oppLinkRow"></div>
         <div class="modal-actions" style="margin-top:8px;">
-          <button type="button" class="btn-ghost" id="oppCreateSampleBtn">📐 Tạo mẫu từ cơ hội này</button>
+          <button type="button" class="btn-ghost" id="oppCreateSampleBtn">📐 Tạo mẫu mới từ cơ hội này</button>
         </div>
       </div>
 
@@ -966,6 +996,14 @@ function statusLabel(rec){
   return rec.specialStatus === 'Khác' ? (rec.specialCustom || 'Khác') : rec.specialStatus;
 }
 
+function sampleOpportunityLabel(rec){
+  if(!rec.opportunityId) return '';
+  const o = opportunityById(rec.opportunityId);
+  if(!o) return '';
+  const c = customerById(o.customerId);
+  return c ? c.companyName : '';
+}
+
 function outcomeBadgeClass(o){
   if(o === 'Approved') return 'outcome-approved';
   if(o === 'Rejected') return 'outcome-rejected';
@@ -1098,6 +1136,7 @@ function renderTable(){
         <td class="desc-cell">
           <div>${escapeHtml(r.description)}</div>
           <div class="collection">${escapeHtml(r.collection)}${r.soDonMau ? ' · #'+escapeHtml(r.soDonMau) : ''}</div>
+          ${r.opportunityId ? `<div class="opp-link-badge">🔗 Từ cơ hội: ${escapeHtml(sampleOpportunityLabel(r) || '—')}</div>` : ''}
         </td>
         <td><span class="badge ${badgeClass}">${escapeHtml(statusLabel(r))}</span></td>
         <td>${escapeHtml(r.person || '—')}</td>
@@ -1142,6 +1181,7 @@ function renderKanban(){
             <div class="desc">${escapeHtml(r.description)}</div>
             <div class="meta">${escapeHtml(r.collection || '')}${r.person ? ' · '+escapeHtml(r.person) : ''}</div>
             <div class="meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</div>
+            ${r.opportunityId ? `<div class="opp-link-badge">🔗 ${escapeHtml(sampleOpportunityLabel(r) || '—')}</div>` : ''}
           </div>`).join('')}
       </div>
     </div>`;
@@ -1358,6 +1398,19 @@ function isOppFollowupOverdue(o){
   return d < today;
 }
 
+function linkedSamplesOf(o){
+  return (o.linkedSampleIds || []).map(id => records.find(r => r.id === id)).filter(Boolean);
+}
+
+function oppSampleSummary(o){
+  const linked = linkedSamplesOf(o);
+  if(!linked.length) return '';
+  const anyOverdue = linked.some(isOverdue);
+  const statuses = [...new Set(linked.map(statusLabel))];
+  const label = statuses.length <= 2 ? statuses.join(', ') : `${statuses.length} trạng thái`;
+  return `<div class="opp-sample-badge ${anyOverdue ? 'overdue' : ''}">📐 ${linked.length} mẫu · ${escapeHtml(label)}</div>`;
+}
+
 function getFilteredOpportunities(){
   const q = document.getElementById('oppSearchInput').value.trim().toLowerCase();
   const type = document.getElementById('oppFilterType').value;
@@ -1386,6 +1439,7 @@ function renderOpportunitiesView(){
   renderOppStats();
   if(oppView === 'table') renderOppTable();
   else if(oppView === 'kanban') renderOppKanban();
+  else if(oppView === 'customer') renderOppCustomerProgress();
   else renderOppDashboard();
 }
 
@@ -1410,6 +1464,7 @@ function renderOppTable(){
   document.getElementById('oppTableView').style.display = 'block';
   document.getElementById('oppKanbanView').style.display = 'none';
   document.getElementById('oppDashboardView').style.display = 'none';
+  document.getElementById('oppCustomerProgressView').style.display = 'none';
   const list = getFilteredOpportunities();
   const container = document.getElementById('oppTableView');
   if(list.length === 0){
@@ -1423,7 +1478,7 @@ function renderOppTable(){
       <tr class="${overdue ? 'overdue-row':''}" data-id="${o.id}">
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
         <td>${escapeHtml(o.opportunityType || '—')}</td>
-        <td>${escapeHtml(o.productDesc || '—')}</td>
+        <td>${escapeHtml(o.productDesc || '—')}${oppSampleSummary(o)}</td>
         <td>${escapeHtml(c ? c.market : '—')}</td>
         <td>${o.estimatedValue ? '$'+Number(o.estimatedValue).toLocaleString('en-US') : '—'}</td>
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
@@ -1454,6 +1509,7 @@ function renderOppKanban(){
   document.getElementById('oppTableView').style.display = 'none';
   document.getElementById('oppKanbanView').style.display = 'block';
   document.getElementById('oppDashboardView').style.display = 'none';
+  document.getElementById('oppCustomerProgressView').style.display = 'none';
   const list = getFilteredOpportunities();
   const container = document.getElementById('oppKanbanView');
   let html = '';
@@ -1469,6 +1525,7 @@ function renderOppKanban(){
             <div class="desc">${escapeHtml(o.productDesc || '')}</div>
             <div class="meta">${escapeHtml(o.opportunityType || '')}${c && c.market ? ' · '+escapeHtml(c.market) : ''}</div>
             <div class="meta">${escapeHtml(formatDateOnly(o.nextFollowUp) || '')}</div>
+            ${oppSampleSummary(o)}
           </div>`;
         }).join('')}
       </div>
@@ -1482,6 +1539,7 @@ function renderOppDashboard(){
   document.getElementById('oppTableView').style.display = 'none';
   document.getElementById('oppKanbanView').style.display = 'none';
   document.getElementById('oppDashboardView').style.display = 'block';
+  document.getElementById('oppCustomerProgressView').style.display = 'none';
   const container = document.getElementById('oppDashboardView');
 
   function breakdownBy(getKey, keys, opts){
@@ -1530,11 +1588,79 @@ function renderOppDashboard(){
     </div>`;
 }
 
+function renderOppCustomerProgress(){
+  document.getElementById('oppTableView').style.display = 'none';
+  document.getElementById('oppKanbanView').style.display = 'none';
+  document.getElementById('oppDashboardView').style.display = 'none';
+  document.getElementById('oppCustomerProgressView').style.display = 'block';
+  const container = document.getElementById('oppCustomerProgressView');
+
+  // Chỉ những cơ hội đã có mẫu thật sự trong Theo dõi mẫu mới xuất hiện ở đây.
+  const list = getFilteredOpportunities().filter(o => (o.linkedSampleIds || []).length > 0);
+  if(!list.length){
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có khách hàng nào đang chạy mẫu</h3><p>Mẫu sẽ xuất hiện ở đây sau khi bạn bấm "Tạo mẫu mới từ cơ hội này" trong một cơ hội.</p></div>`;
+    return;
+  }
+
+  const byCustomer = {};
+  list.forEach(o => {
+    const cid = o.customerId || '_unknown';
+    (byCustomer[cid] = byCustomer[cid] || []).push(o);
+  });
+
+  const cards = Object.entries(byCustomer).map(([cid, opps]) => {
+    const c = customerById(cid);
+    const allLinked = opps.flatMap(linkedSamplesOf);
+    const anyOverdue = allLinked.some(isOverdue);
+
+    const oppBlocks = opps.map(o => {
+      const linked = linkedSamplesOf(o);
+      const items = linked.map(r => `
+        <div class="linked-sample-item" data-id="${r.id}">
+          ${r.image ? `<img class="thumb" src="${r.image}">` : `<div class="thumb-empty">—</div>`}
+          <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}</div>
+          <span class="badge ${r.statusGroup === 'production' ? 'production' : 'special'}">${escapeHtml(statusLabel(r))}</span>
+          <span class="lsi-meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</span>
+        </div>`).join('');
+      return `
+        <div class="cpo-block">
+          <div class="cpo-title" data-opp-id="${o.id}">
+            <span>${escapeHtml(o.productDesc || o.opportunityType || 'Cơ hội')}</span>
+            <span class="badge special">${escapeHtml(o.status || '—')}</span>
+          </div>
+          <div class="linked-samples">${items}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="cust-progress-card">
+        <div class="cpc-head">
+          <div>
+            <h3>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</h3>
+            <div class="cpc-sub">${escapeHtml(c ? (c.market || '') : '')}${c && c.personInCharge ? ' · '+escapeHtml(c.personInCharge) : ''}</div>
+          </div>
+          <div class="cpc-sub ${anyOverdue ? 'overdue-text' : ''}">${allLinked.length} mẫu đang theo dõi${anyOverdue ? ' · có mẫu quá hạn' : ''}</div>
+        </div>
+        <div class="cust-progress-opps">${oppBlocks}</div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `<div class="cust-progress-grid">${cards}</div>`;
+
+  container.querySelectorAll('.linked-sample-item').forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    switchModule('samples');
+    openEdit(el.dataset.id);
+  }));
+  container.querySelectorAll('.cpo-title').forEach(el => el.addEventListener('click', () => openEditOpportunity(el.dataset.oppId)));
+}
+
 function switchOppView(v){
   oppView = v;
   document.getElementById('oppViewTableBtn').classList.toggle('active', v==='table');
   document.getElementById('oppViewKanbanBtn').classList.toggle('active', v==='kanban');
   document.getElementById('oppViewDashboardBtn').classList.toggle('active', v==='dashboard');
+  document.getElementById('oppViewCustomerBtn').classList.toggle('active', v==='customer');
   renderOpportunitiesView();
 }
 
@@ -1545,7 +1671,7 @@ function resetOppForm(){
   document.getElementById('o_winLossWrap').style.display = 'none';
   document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(null);
   document.getElementById('oppDeleteBtn').style.display = 'none';
-  document.getElementById('oppNpdLinkWrap').style.display = 'none';
+  document.getElementById('oppSampleLinkWrap').style.display = 'none';
   oppActivityLogDraft = [];
   renderOppLogList();
 }
@@ -1597,18 +1723,35 @@ function openEditOpportunity(id){
   renderOppLogList();
   document.getElementById('oppDeleteBtn').style.display = 'inline-block';
 
-  if(o.opportunityType === 'Phát triển mẫu mới (NPD)'){
-    document.getElementById('oppNpdLinkWrap').style.display = 'block';
-    const linkedCount = (o.linkedSampleIds || []).length;
-    document.getElementById('oppLinkRow').textContent = linkedCount
-      ? `Đã tạo ${linkedCount} mẫu từ cơ hội này trong Theo dõi mẫu.`
-      : `Cơ hội NPD này chưa có mẫu nào trong Theo dõi mẫu.`;
-  }
+  document.getElementById('oppSampleLinkWrap').style.display = 'block';
+  renderOppLinkedSamples(o);
   document.getElementById('oppOverlay').classList.add('open');
 }
 
 function closeOppModal(){
   document.getElementById('oppOverlay').classList.remove('open');
+}
+
+function renderOppLinkedSamples(o){
+  const linked = linkedSamplesOf(o);
+  const wrap = document.getElementById('oppLinkRow');
+  if(!linked.length){
+    wrap.innerHTML = `<div class="info-empty">Cơ hội này chưa có mẫu nào trong Theo dõi mẫu. Bấm "Tạo mẫu mới từ cơ hội này" bên dưới để bắt đầu.</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="linked-samples">${linked.map(r => `
+    <div class="linked-sample-item" data-id="${r.id}">
+      ${r.image ? `<img class="thumb" src="${r.image}">` : `<div class="thumb-empty">—</div>`}
+      <div class="lsi-desc">${escapeHtml(r.description || '(chưa có mô tả)')}</div>
+      <span class="badge ${r.statusGroup === 'production' ? 'production' : 'special'}">${escapeHtml(statusLabel(r))}</span>
+      <span class="lsi-meta">${escapeHtml(formatDateOnly(r.updatedETD || r.confirmedETD) || '')}</span>
+    </div>`).join('')}</div>`;
+  wrap.querySelectorAll('.linked-sample-item').forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    closeOppModal();
+    switchModule('samples');
+    openEdit(id);
+  }));
 }
 
 async function saveOpportunity(e){
@@ -2019,6 +2162,7 @@ function bindEvents(){
   document.getElementById('oppViewTableBtn').addEventListener('click', () => switchOppView('table'));
   document.getElementById('oppViewKanbanBtn').addEventListener('click', () => switchOppView('kanban'));
   document.getElementById('oppViewDashboardBtn').addEventListener('click', () => switchOppView('dashboard'));
+  document.getElementById('oppViewCustomerBtn').addEventListener('click', () => switchOppView('customer'));
   document.getElementById('oppExportBtn').addEventListener('click', exportOppCsv);
 
   document.getElementById('imageOverlay').addEventListener('click', () => {
