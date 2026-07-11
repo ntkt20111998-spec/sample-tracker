@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Theo dõi mẫu phát triển — Cat Dang</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#FAF7F1;
+    --surface:#FFFFFF;
+    --ink:#2B2420;
+    --ink-soft:#6E6459;
+    --line:#E6DCCB;
+    --accent:#A85C32;
+    --accent-soft:#F1E1D3;
+    --sage:#6B7B5E;
+    --sage-soft:#E5EAE0;
+    --rust:#B23A2E;
+    --rust-soft:#F6E1DE;
+    --amber:#B8862E;
+    --amber-soft:#F5EBD6;
+    --slate:#5B6B78;
+    --slate-soft:#E2E8EC;
+    --radius:10px;
+    --font-display:'Source Serif 4','Georgia',serif;
+    --font-body:'Inter','Segoe UI',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); font-size:14px; line-height:1.5;
+  }
+  ::selection{background:var(--accent-soft);}
+
+  /* ---------- header ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; border-bottom:1px solid var(--line); background:var(--surface);
+    gap:16px; flex-wrap:wrap;
+  }
+  .brandmark{display:flex; align-items:center; gap:12px;}
+  .brandmark .tag{
+    width:34px; height:34px; border-radius:8px; background:var(--accent);
+    position:relative; flex-shrink:0;
+  }
+  .brandmark .tag::after{
+    content:''; position:absolute; top:7px; left:7px; width:6px; height:6px;
+    border-radius:50%; background:var(--bg);
+  }
+  .brandmark h1{font-family:var(--font-display); font-size:19px; margin:0; font-weight:600;}
+  .brandmark p{margin:0; font-size:12px; color:var(--ink-soft);}
+  .user-chip{
+    display:flex; align-items:center; gap:8px; background:var(--accent-soft);
+    padding:6px 12px; border-radius:20px; font-size:13px; cursor:pointer; border:none;
+    color:var(--accent); font-weight:600;
+  }
+  .btn-primary{
+    background:var(--ink); color:#fff; border:none; padding:9px 16px;
+    border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
+    font-family:var(--font-body);
+  }
+  .btn-primary:hover{background:var(--accent);}
+  .btn-primary:disabled{opacity:.6; cursor:default;}
+  .btn-ghost{
+    background:transparent; border:1px solid var(--line); color:var(--ink);
+    padding:8px 14px; border-radius:8px; font-size:13px; cursor:pointer; font-family:var(--font-body);
+  }
+  .btn-ghost:hover{border-color:var(--accent); color:var(--accent);}
+
+  /* ---------- stats ---------- */
+  .stats{
+    display:flex; gap:12px; padding:16px 24px 0; flex-wrap:wrap;
+  }
+  .stat-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 18px; min-width:120px;
+  }
+  .stat-card .num{font-family:var(--font-display); font-size:24px; font-weight:600;}
+  .stat-card .label{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
+  .stat-card.overdue .num{color:var(--rust);}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    display:flex; gap:10px; padding:16px 24px; flex-wrap:wrap; align-items:center;
+  }
+  .toolbar input[type=text], .toolbar select{
+    background:var(--surface); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:13px; font-family:var(--font-body); color:var(--ink);
+  }
+  .toolbar input[type=text]{min-width:180px;}
+  .view-toggle{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .view-toggle button{
+    border:none; background:var(--surface); padding:8px 14px; font-size:13px; cursor:pointer;
+    font-family:var(--font-body); color:var(--ink-soft);
+  }
+  .view-toggle button.active{background:var(--ink); color:#fff;}
+  .checkbox-pill{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft);}
+  .spacer{flex:1;}
+
+  /* ---------- table ---------- */
+  .content{padding:0 24px 40px;}
+  table{width:100%; border-collapse:collapse; background:var(--surface); border-radius:var(--radius); overflow:hidden;}
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-soft); padding:10px 12px; border-bottom:1px solid var(--line); background:#FCFAF6;
+  }
+  tbody td{padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle;}
+  tbody tr:hover{background:#FDFBF7;}
+  tbody tr.overdue-row{background:var(--rust-soft);}
+  .thumb{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:#f2ede4;}
+  .thumb-empty{width:36px; height:36px; border-radius:6px; border:1px dashed var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:10px;}
+  .desc-cell{max-width:220px;}
+  .desc-cell .collection{font-size:11px; color:var(--ink-soft);}
+
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px 3px 6px;
+    border-radius:20px; font-size:11.5px; font-weight:600; position:relative; white-space:nowrap;
+  }
+  .badge::before{content:''; width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0;}
+  .badge.production{background:var(--slate-soft); color:var(--slate);}
+  .badge.special{background:var(--amber-soft); color:var(--amber);}
+  .badge.outcome-approved{background:var(--sage-soft); color:var(--sage);}
+  .badge.outcome-rejected{background:var(--rust-soft); color:var(--rust);}
+  .badge.outcome-revise{background:var(--amber-soft); color:var(--amber);}
+  .badge.outcome-none{background:#EFEBE3; color:var(--ink-soft);}
+
+  .row-actions{display:flex; gap:6px;}
+  .icon-btn{
+    border:1px solid var(--line); background:var(--surface); border-radius:6px; width:28px; height:28px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:13px;
+  }
+  .icon-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty-state h3{font-family:var(--font-display); color:var(--ink); margin-bottom:6px;}
+
+  /* ---------- kanban ---------- */
+  .kanban{display:flex; gap:14px; overflow-x:auto; padding-bottom:16px;}
+  .kanban-col{
+    min-width:260px; max-width:260px; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); display:flex; flex-direction:column; max-height:calc(100vh - 260px);
+  }
+  .kanban-col-head{
+    padding:10px 12px; border-bottom:1px solid var(--line); font-size:12.5px; font-weight:700;
+    display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:var(--surface); border-radius:var(--radius) var(--radius) 0 0;
+  }
+  .kanban-col-head .count{
+    background:var(--bg); border-radius:10px; padding:1px 8px; font-size:11px; color:var(--ink-soft); font-weight:600;
+  }
+  .kanban-body{padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
+  .kcard{
+    border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer; background:#FEFDFB;
+  }
+  .kcard:hover{border-color:var(--accent);}
+  .kcard.overdue{border-color:var(--rust); background:var(--rust-soft);}
+  .kcard .brand-line{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-bottom:4px;}
+  .kcard .desc{font-size:13px; font-weight:600; margin-bottom:4px;}
+  .kcard .meta{font-size:11px; color:var(--ink-soft);}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,36,32,.45); display:none;
+    align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--surface); border-radius:14px; width:100%; max-width:640px;
+    max-height:90vh; overflow-y:auto; padding:24px;
+  }
+  .modal h2{font-family:var(--font-display); margin:0 0 16px; font-size:19px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:4px; font-weight:600;}
+  input[type=text], input[type=number], input[type=password], textarea, select{
+    width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-family:var(--font-body); font-size:13px; color:var(--ink); background:var(--bg);
+  }
+  textarea{resize:vertical; min-height:50px;}
+  .status-group-toggle{display:flex; gap:8px; margin-bottom:10px;}
+  .status-group-toggle button{
+    flex:1; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+    cursor:pointer; font-size:12.5px; font-weight:600; color:var(--ink-soft);
+  }
+  .status-group-toggle button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .modal-actions{display:flex; justify-content:space-between; align-items:center; margin-top:18px; gap:10px;}
+  .img-upload{display:flex; align-items:center; gap:10px;}
+  .img-preview{width:56px; height:56px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:#f2ede4;}
+  .history-box{
+    margin-top:16px; border-top:1px solid var(--line); padding-top:12px; font-size:12px; color:var(--ink-soft);
+  }
+  .history-box .h-item{padding:3px 0;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px;
+    z-index:100; opacity:0; transition:opacity .25s;
+  }
+  .toast.show{opacity:1;}
+
+  .name-modal .modal{max-width:380px;}
+  .confirm-modal .modal{max-width:340px; text-align:center;}
+  .confirm-modal .modal-actions{justify-content:center;}
+  .login-error{color:var(--rust); font-size:12.5px; margin:-4px 0 10px; display:none;}
+
+  @media (max-width:720px){
+    .form-grid{grid-template-columns:1fr;}
+    table{display:block; overflow-x:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brandmark">
+    <div class="tag"></div>
+    <div>
+      <h1>Theo dõi mẫu phát triển</h1>
+      <p>Cat Dang Handicraft — nhiều brand, nhiều thành viên</p>
+    </div>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button class="user-chip" id="userChip">Đang tải...</button>
+    <button class="btn-primary" id="addBtn">+ Thêm mẫu</button>
+  </div>
+</div>
+
+<div class="stats" id="statsRow"></div>
+
+<div class="toolbar">
+  <input type="text" id="searchInput" placeholder="Tìm mô tả, mã đơn mẫu, collection...">
+  <select id="filterBrand"><option value="">Tất cả brand</option></select>
+  <select id="filterSeason"><option value="">Tất cả season</option></select>
+  <select id="filterCollection"><option value="">Tất cả collection</option></select>
+  <select id="filterPerson"><option value="">Tất cả người phụ trách</option></select>
+  <label class="checkbox-pill"><input type="checkbox" id="filterOverdue"> Chỉ hiện quá hạn</label>
+  <div class="spacer"></div>
+  <button class="btn-ghost" id="exportBtn">Xuất CSV</button>
+  <div class="view-toggle">
+    <button id="viewTableBtn" class="active">Bảng</button>
+    <button id="viewKanbanBtn">Kanban</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="tableView"></div>
+  <div id="kanbanView" style="display:none;"></div>
+</div>
+
+<!-- Record modal -->
+<div class="overlay" id="recordOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Thêm mẫu mới</h2>
+    <form id="recordForm">
+      <div class="form-grid">
+        <div>
+          <label>Brand</label>
+          <input type="text" id="f_brand" list="brandList" required>
+          <datalist id="brandList"></datalist>
+        </div>
+        <div>
+          <label>Season</label>
+          <input type="text" id="f_season" list="seasonList" placeholder="VD: SU27">
+          <datalist id="seasonList"></datalist>
+        </div>
+        <div>
+          <label>Collection</label>
+          <input type="text" id="f_collection" list="collectionList">
+          <datalist id="collectionList"></datalist>
+        </div>
+        <div>
+          <label>Số đơn mẫu</label>
+          <input type="text" id="f_soDonMau">
+        </div>
+        <div class="full">
+          <label>Mô tả mẫu</label>
+          <input type="text" id="f_description" required>
+        </div>
+
+        <div class="full">
+          <label>Ảnh mẫu (tuỳ chọn, sẽ được nén nhỏ)</label>
+          <div class="img-upload">
+            <img id="imgPreview" class="img-preview" style="display:none;">
+            <input type="file" id="f_image" accept="image/*">
+            <button type="button" class="icon-btn" id="clearImgBtn" title="Xoá ảnh">✕</button>
+          </div>
+        </div>
+
+        <div class="full">
+          <label>Trạng thái</label>
+          <div class="status-group-toggle">
+            <button type="button" id="tglProduction" class="active">Đang sản xuất mẫu</button>
+            <button type="button" id="tglSpecial">Nhánh đặc biệt</button>
+          </div>
+        </div>
+        <div class="full" id="prodStageWrap">
+          <label>Công đoạn</label>
+          <select id="f_prodStage">
+            <option>Chờ bắt đầu</option>
+            <option>Cutting</option>
+            <option>Painting</option>
+            <option>Hoàn thiện</option>
+            <option>Hoàn tất - chờ gửi</option>
+          </select>
+        </div>
+        <div class="full" id="specialStatusWrap" style="display:none;">
+          <label>Loại nhánh đặc biệt</label>
+          <select id="f_specialStatus">
+            <option>Ngoài năng lực xưởng</option>
+            <option>Không làm mẫu vật lý</option>
+            <option>Cần điều chỉnh theo năng lực NCC</option>
+            <option>Review màu</option>
+            <option>Review kết cấu</option>
+            <option>Yêu cầu chỉnh sửa kích thước</option>
+            <option>Khác</option>
+          </select>
+          <input type="text" id="f_specialCustom" placeholder="Mô tả nhánh đặc biệt..." style="margin-top:8px; display:none;">
+        </div>
+
+        <div>
+          <label>Người phụ trách</label>
+          <input type="text" id="f_person" list="personList">
+          <datalist id="personList"></datalist>
+        </div>
+        <div>
+          <label>Kết quả</label>
+          <select id="f_outcome">
+            <option>Chưa có kết quả</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+            <option>Cần chỉnh sửa thêm</option>
+          </select>
+        </div>
+        <div>
+          <label>Số lượng yêu cầu</label>
+          <input type="text" id="f_qty">
+        </div>
+        <div>
+          <label>Confirmed ETD</label>
+          <input type="text" id="f_confirmedETD" placeholder="Ngày hoặc ghi chú tự do">
+        </div>
+        <div>
+          <label>Updated ETD (dùng để tính quá hạn nếu là ngày)</label>
+          <input type="text" id="f_updatedETD" placeholder="YYYY-MM-DD nếu có thể">
+        </div>
+        <div>
+          <label>Ship date</label>
+          <input type="text" id="f_shipDate">
+        </div>
+        <div class="full">
+          <label>Tracking number</label>
+          <input type="text" id="f_tracking">
+        </div>
+        <div class="full">
+          <label>Ghi chú</label>
+          <textarea id="f_note"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="deleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá mẫu này</button>
+        <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="cancelBtn">Huỷ</button>
+        <button type="submit" class="btn-primary">Lưu</button>
+      </div>
+      <div class="history-box" id="historyBox" style="display:none;"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Login / Name modal -->
+<div class="overlay name-modal" id="nameOverlay">
+  <div class="modal">
+    <h2 id="loginTitle">Đăng nhập</h2>
+    <p style="color:var(--ink-soft); font-size:13px; margin-top:-8px; margin-bottom:14px;" id="loginSubtitle">Nhập mã truy cập chung của team và tên của bạn.</p>
+    <div id="passcodeField">
+      <label>Mã truy cập (passcode)</label>
+      <input type="password" id="passcodeInput" placeholder="Nhập passcode" style="margin-bottom:12px;">
+    </div>
+    <label>Tên của bạn</label>
+    <input type="text" id="nameInput" placeholder="Nhập tên của bạn" style="margin-bottom:4px;">
+    <p style="color:var(--ink-soft); font-size:12px; margin-top:4px;">Tên này sẽ hiện trong lịch sử cập nhật để cả team biết ai đã sửa gì.</p>
+    <div class="login-error" id="loginError"></div>
+    <div class="modal-actions">
+      <div style="flex:1;"></div>
+      <button class="btn-primary" id="saveNameBtn">Vào ứng dụng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div class="overlay confirm-modal" id="confirmOverlay">
+  <div class="modal">
+    <h2>Xoá mẫu này?</h2>
+    <p style="color:var(--ink-soft); font-size:13px;">Hành động này không thể hoàn tác.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="confirmCancelBtn">Huỷ</button>
+      <button class="btn-primary" id="confirmDeleteBtn" style="background:var(--rust);">Xoá</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= FIREBASE SETUP ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDMQY7NJdxun0XMb9rM9nPrzgG4tnQgcIU",
+  authDomain: "catdang-sample-tracker.firebaseapp.com",
+  projectId: "catdang-sample-tracker",
+  storageBucket: "catdang-sample-tracker.firebasestorage.app",
+  messagingSenderId: "772299970606",
+  appId: "1:772299970606:web:da2f704b2554d59c28a7bf"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const AUTH_EMAIL = 'team@catdang-sample-tracker.app';
+const SAMPLES_COL = 'samples';
+function samplesCollection(){ return db.collection(SAMPLES_COL); }
+
+/* ================= SEED DATA (từ file WE_SP_SU27 Sample Tracker) ================= */
+const RAW_SEED = [{"brand": "WE", "season": "SP27", "collection": "Luka", "description": "Tall Bin - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "2", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "51"}, {"brand": "WE", "season": "SP27", "collection": "Luka", "description": "Short Bin - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "2", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "51"}, {"brand": "WE", "season": "SP27", "collection": "Iro", "description": "Tall Canister - D4 H6\" - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "85"}, {"brand": "WE", "season": "SP27", "collection": "Iro", "description": "Short Canister - D5 H4\" - round 2", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "85"}, {"brand": "WE", "season": "SP27", "collection": "JM Black", "description": "Folding Mirror - 24x60\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-20 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "89"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Box w. lid - D5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Coaster - set of 4 - D4\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Nut Bowl - D4\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box S - D4.5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box M - D5.75\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Stacking Box L - D7\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Round tray S - D12\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Hydrodip", "description": "Round tray L - D18\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "96"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Rect Tray - 14x18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Rect Tray w. leg - 14x18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting Completed", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Round Tray - D18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Satin", "description": "Round Tray w. leg - D18 H2\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "106"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "2x3\" Photo Frame", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "2x6\" Photo Frame", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 12x12\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 9x9\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 14.5x8.5”", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Wyn", "description": "Wall Mirror - 22x29\"", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "99"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V1", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "2", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V2", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "2", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Letter Tray - 10x14\" - V3", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V1", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V2", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Catchall - 5x10\" - V3", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V1", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-18 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "94"}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V2", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Lacquer", "description": "Pencil Cup - 4x4\" - V3", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Bent Wood", "description": "Jar - D3.5\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "97"}, {"brand": "WE", "season": "SU27", "collection": "Bent Wood", "description": "Serve Tray - D13\"", "projectStatus": "Under sampling process", "confirmedETD": "To be ready before Brand trip", "qty": "1", "sampleStatus": "Cutting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "97"}, {"brand": "WE", "season": "HO26", "collection": "Mini Tree (WEK)", "description": "Mini Tree - dark walnut", "projectStatus": "Color review", "confirmedETD": null, "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "86"}, {"brand": "WE", "season": "SU27", "collection": "JM Slim tray", "description": "Slim Lacquer Tray with Cork - set of 3 sizes - 2 colorways", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-19 00:00:00", "qty": "6", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "95"}, {"brand": "WE", "season": "SU27", "collection": "WE Kids", "description": "Geo Hook Shelf - 9”H X 22”W X 4.5”D", "projectStatus": "Under sampling process", "confirmedETD": "2026-03-17 00:00:00", "qty": "1", "sampleStatus": "Painting", "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "98"}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Divider - adjust hinges", "projectStatus": "Construction review", "confirmedETD": "Can revise CD kept sample for Brand trip review first; additional sample will be submited later", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 12.2x12.2\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 9.3x21.8\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Lacquer Tray - 17.9x29.2\"", "projectStatus": "Assorted without physical sample", "confirmedETD": "2026-05-04 00:00:00", "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Butler Stand - 18x28\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Wall Mirror - 30x30\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "Floor Mirror - 30x72\"", "projectStatus": "Assorted without physical sample", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "8x10 Gallery Frame - 16x20\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Claude Home - Tubular Tied", "description": "8x10 Gallery Frame - 18x24\"", "projectStatus": "To be modify according to vendor's capability", "confirmedETD": "2026-05-04 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": "107"}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Book Stand", "projectStatus": "Revise thickness + Change to KD structure - under investigation", "confirmedETD": null, "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": "WE", "season": "SU27", "collection": "Iro", "description": "Short Bin - round 2", "projectStatus": "Revise Dimension", "confirmedETD": "2026-04-10 00:00:00", "qty": "1", "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Olev", "description": "Short Object", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Olev", "description": "Tall Object", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Lacquer Bowl - 18x18\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Lacquer Bowl - 14x14\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Catchall Tray - D18\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Thin Lacquer", "description": "Catchall Tray - D14\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Cheese Knives - set of 3", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Napkin ring - D1.5\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Shaker - D1.75\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Serve Bowl - D11.5\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}, {"brand": null, "season": "SU27", "collection": "Bent Wood", "description": "Serve Plate - 3x6\"", "projectStatus": "Out of vendor's capability", "confirmedETD": null, "qty": null, "sampleStatus": null, "tracking": null, "updatedETD": null, "shipDate": null, "note": null, "soDonMau": null}];
+
+function mapSeedRecord(raw, idx){
+  const now = new Date().toISOString();
+  let statusGroup = 'production';
+  let prodStage = 'Chờ bắt đầu';
+  let specialStatus = '';
+  let specialCustom = '';
+
+  const map = {
+    "Out of vendor's capability": "Ngoài năng lực xưởng",
+    "Assorted without physical sample": "Không làm mẫu vật lý",
+    "To be modify according to vendor's capability": "Cần điều chỉnh theo năng lực NCC",
+    "Color review": "Review màu",
+    "Construction review": "Review kết cấu",
+    "Revise Dimension": "Yêu cầu chỉnh sửa kích thước"
+  };
+
+  if(raw.projectStatus === 'Under sampling process'){
+    statusGroup = 'production';
+    if(raw.sampleStatus === 'Cutting') prodStage = 'Cutting';
+    else if(raw.sampleStatus === 'Painting') prodStage = 'Painting';
+    else if(raw.sampleStatus === 'Cutting Completed') prodStage = 'Hoàn thiện';
+    else prodStage = 'Chờ bắt đầu';
+  } else if(raw.projectStatus && map[raw.projectStatus]){
+    statusGroup = 'special';
+    specialStatus = map[raw.projectStatus];
+  } else if(raw.projectStatus){
+    statusGroup = 'special';
+    specialStatus = 'Khác';
+    specialCustom = raw.projectStatus;
+  }
+
+  return {
+    id: 'seed-' + idx + '-' + Date.now(),
+    brand: raw.brand || '',
+    season: raw.season || '',
+    collection: raw.collection || '',
+    description: raw.description || '',
+    soDonMau: raw.soDonMau || '',
+    statusGroup, prodStage, specialStatus, specialCustom,
+    person: '',
+    outcome: 'Chưa có kết quả',
+    qty: raw.qty || '',
+    confirmedETD: raw.confirmedETD || '',
+    updatedETD: raw.updatedETD || '',
+    shipDate: raw.shipDate || '',
+    tracking: raw.tracking || '',
+    note: raw.note || '',
+    image: null,
+    history: [{ts: now, user:'Hệ thống', action:'Nhập từ file WE_SP_SU27 Sample Tracker (03/17/2026)'}],
+    createdAt: now, updatedAt: now, updatedBy: 'Hệ thống'
+  };
+}
+
+/* ================= LOCAL DISPLAY NAME (per-browser, real localStorage) ================= */
+function getSavedName(){
+  try{ return localStorage.getItem('display-name') || ''; }catch(e){ return ''; }
+}
+function saveDisplayName(name){
+  try{ localStorage.setItem('display-name', name); }catch(e){}
+}
+
+/* ================= FIRESTORE HELPERS ================= */
+async function ensureSeeded(){
+  const snap = await samplesCollection().limit(1).get();
+  if(!snap.empty) return;
+  const mapped = RAW_SEED.map(mapSeedRecord);
+  const batch = db.batch();
+  mapped.forEach(rec => { batch.set(samplesCollection().doc(rec.id), rec); });
+  await batch.commit();
+}
+
+async function saveSampleDoc(id, data){
+  await samplesCollection().doc(id).set(data);
+}
+
+async function deleteSampleDoc(id){
+  await samplesCollection().doc(id).delete();
+}
+
+let unsubscribeSamples = null;
+function attachRecordsListener(){
+  if(unsubscribeSamples){ unsubscribeSamples(); unsubscribeSamples = null; }
+  unsubscribeSamples = samplesCollection().onSnapshot(snap => {
+    records = snap.docs.map(d => d.data());
+    records.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    renderAll();
+  }, err => {
+    console.error('Firestore listen error', err);
+    showToast('Lỗi kết nối dữ liệu: ' + err.message);
+  });
+}
+
+/* ================= STATE ================= */
+let records = [];
+let currentUser = '';
+let currentView = 'table';
+let editingId = null;
+let pendingImage = null;
+let pendingDeleteId = null;
+let appStarted = false;
+
+const PROD_STAGES = ['Chờ bắt đầu','Cutting','Painting','Hoàn thiện','Hoàn tất - chờ gửi'];
+const SPECIAL_STATUSES = ['Ngoài năng lực xưởng','Không làm mẫu vật lý','Cần điều chỉnh theo năng lực NCC','Review màu','Review kết cấu','Yêu cầu chỉnh sửa kích thước','Khác'];
+
+/* ================= AUTH / LOGIN FLOW ================= */
+function showLoginStep(needsPasscode, title, subtitle){
+  document.getElementById('passcodeField').style.display = needsPasscode ? 'block' : 'none';
+  document.getElementById('loginTitle').textContent = title;
+  document.getElementById('loginSubtitle').textContent = subtitle;
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('nameOverlay').classList.add('open');
+}
+
+async function startApp(){
+  if(appStarted) return;
+  appStarted = true;
+  document.getElementById('userChip').textContent = '👤 ' + currentUser;
+  document.getElementById('nameOverlay').classList.remove('open');
+  try{
+    await ensureSeeded();
+  }catch(e){
+    console.error('Seed error', e);
+  }
+  attachRecordsListener();
+}
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    const saved = getSavedName();
+    if(saved){
+      currentUser = saved;
+      startApp();
+    } else {
+      showLoginStep(false, 'Chào bạn', 'Nhập tên của bạn để bắt đầu.');
+    }
+  } else {
+    appStarted = false;
+    document.getElementById('userChip').textContent = '👤 Đăng nhập';
+    showLoginStep(true, 'Đăng nhập', 'Nhập mã truy cập chung của team và tên của bạn.');
+  }
+});
+
+async function handleLoginSubmit(){
+  const errorEl = document.getElementById('loginError');
+  errorEl.style.display = 'none';
+  const needsPasscode = document.getElementById('passcodeField').style.display !== 'none';
+  const name = document.getElementById('nameInput').value.trim();
+  if(!name){
+    errorEl.textContent = 'Vui lòng nhập tên của bạn';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('saveNameBtn');
+
+  if(needsPasscode){
+    const passcode = document.getElementById('passcodeInput').value;
+    if(!passcode){
+      errorEl.textContent = 'Vui lòng nhập passcode';
+      errorEl.style.display = 'block';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Đang kiểm tra...';
+    try{
+      await auth.signInWithEmailAndPassword(AUTH_EMAIL, passcode);
+      saveDisplayName(name);
+      currentUser = name;
+      // onAuthStateChanged will detect saved name and call startApp()
+    }catch(e){
+      errorEl.textContent = 'Sai passcode, vui lòng thử lại.';
+      errorEl.style.display = 'block';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Vào ứng dụng';
+  } else {
+    saveDisplayName(name);
+    currentUser = name;
+    await startApp();
+  }
+}
+
+/* ================= RENDER ================= */
+function isOverdue(rec){
+  if(rec.outcome === 'Approved' || rec.outcome === 'Rejected') return false;
+  const dateStr = rec.updatedETD || rec.confirmedETD;
+  if(!dateStr) return false;
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d < today;
+}
+
+function statusLabel(rec){
+  if(rec.statusGroup === 'production') return rec.prodStage || 'Chờ bắt đầu';
+  return rec.specialStatus === 'Khác' ? (rec.specialCustom || 'Khác') : rec.specialStatus;
+}
+
+function outcomeBadgeClass(o){
+  if(o === 'Approved') return 'outcome-approved';
+  if(o === 'Rejected') return 'outcome-rejected';
+  if(o === 'Cần chỉnh sửa thêm') return 'outcome-revise';
+  return 'outcome-none';
+}
+
+function getFiltered(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const brand = document.getElementById('filterBrand').value;
+  const season = document.getElementById('filterSeason').value;
+  const collection = document.getElementById('filterCollection').value;
+  const person = document.getElementById('filterPerson').value;
+  const onlyOverdue = document.getElementById('filterOverdue').checked;
+
+  return records.filter(r => {
+    if(brand && r.brand !== brand) return false;
+    if(season && r.season !== season) return false;
+    if(collection && r.collection !== collection) return false;
+    if(person && r.person !== person) return false;
+    if(onlyOverdue && !isOverdue(r)) return false;
+    if(q){
+      const hay = [r.description, r.soDonMau, r.collection, r.brand, r.note].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function populateFilterOptions(){
+  const brands = [...new Set(records.map(r=>r.brand).filter(Boolean))].sort();
+  const seasons = [...new Set(records.map(r=>r.season).filter(Boolean))].sort();
+  const collections = [...new Set(records.map(r=>r.collection).filter(Boolean))].sort();
+  const persons = [...new Set(records.map(r=>r.person).filter(Boolean))].sort();
+
+  fillSelect('filterBrand', brands, 'Tất cả brand');
+  fillSelect('filterSeason', seasons, 'Tất cả season');
+  fillSelect('filterCollection', collections, 'Tất cả collection');
+  fillSelect('filterPerson', persons, 'Tất cả người phụ trách');
+
+  fillDatalist('brandList', brands);
+  fillDatalist('seasonList', seasons);
+  fillDatalist('collectionList', collections);
+  fillDatalist('personList', persons);
+}
+function fillSelect(id, values, allLabel){
+  const el = document.getElementById(id);
+  const cur = el.value;
+  el.innerHTML = '<option value="">'+allLabel+'</option>' + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  el.value = cur;
+}
+function fillDatalist(id, values){
+  document.getElementById(id).innerHTML = values.map(v=>`<option value="${escapeHtml(v)}">`).join('');
+}
+
+function renderAll(){
+  populateFilterOptions();
+  renderStats();
+  if(currentView === 'table') renderTable(); else renderKanban();
+}
+
+function renderStats(){
+  const total = records.length;
+  const overdue = records.filter(isOverdue).length;
+  const byBrand = {};
+  records.forEach(r => { if(r.brand){ byBrand[r.brand] = (byBrand[r.brand]||0)+1; } });
+  const brandEntries = Object.entries(byBrand).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+  let html = `
+    <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số mẫu</div></div>
+    <div class="stat-card overdue"><div class="num">${overdue}</div><div class="label">Quá hạn</div></div>
+  `;
+  brandEntries.forEach(([b,c]) => {
+    html += `<div class="stat-card"><div class="num">${c}</div><div class="label">${escapeHtml(b)}</div></div>`;
+  });
+  document.getElementById('statsRow').innerHTML = html;
+}
+
+function renderTable(){
+  const list = getFiltered();
+  const container = document.getElementById('tableView');
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có mẫu nào khớp</h3><p>Thử đổi bộ lọc hoặc thêm mẫu mới.</p></div>`;
+    return;
+  }
+  let rows = list.map(r => {
+    const overdue = isOverdue(r);
+    const badgeClass = r.statusGroup === 'production' ? 'production' : 'special';
+    const img = r.image
+      ? `<img class="thumb" src="${r.image}">`
+      : `<div class="thumb-empty">—</div>`;
+    return `
+      <tr class="${overdue ? 'overdue-row' : ''}" data-id="${r.id}">
+        <td>${img}</td>
+        <td>${escapeHtml(r.brand)}</td>
+        <td>${escapeHtml(r.season)}</td>
+        <td class="desc-cell">
+          <div>${escapeHtml(r.description)}</div>
+          <div class="collection">${escapeHtml(r.collection)}${r.soDonMau ? ' · #'+escapeHtml(r.soDonMau) : ''}</div>
+        </td>
+        <td><span class="badge ${badgeClass}">${escapeHtml(statusLabel(r))}</span></td>
+        <td>${escapeHtml(r.person || '—')}</td>
+        <td>${escapeHtml(r.updatedETD || r.confirmedETD || '—')}</td>
+        <td><span class="badge ${outcomeBadgeClass(r.outcome)}">${escapeHtml(r.outcome || 'Chưa có kết quả')}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn edit-btn" data-id="${r.id}" title="Sửa">✎</button>
+            <button class="icon-btn del-btn" data-id="${r.id}" title="Xoá">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        <th></th><th>Brand</th><th>Season</th><th>Mô tả / Collection</th>
+        <th>Trạng thái</th><th>Phụ trách</th><th>ETD</th><th>Kết quả</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  container.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', e => openEdit(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id)));
+}
+
+function renderKanban(){
+  const list = getFiltered();
+  const container = document.getElementById('kanbanView');
+  const columns = [...PROD_STAGES, ...SPECIAL_STATUSES];
+  let html = '';
+  columns.forEach(col => {
+    const items = list.filter(r => statusLabel(r) === col || (col==='Khác' && r.statusGroup==='special' && r.specialStatus==='Khác'));
+    html += `<div class="kanban-col">
+      <div class="kanban-col-head"><span>${escapeHtml(col)}</span><span class="count">${items.length}</span></div>
+      <div class="kanban-body">
+        ${items.map(r => `
+          <div class="kcard ${isOverdue(r)?'overdue':''}" data-id="${r.id}">
+            <div class="brand-line"><span>${escapeHtml(r.brand)} · ${escapeHtml(r.season)}</span><span>${escapeHtml(r.soDonMau ? '#'+r.soDonMau : '')}</span></div>
+            <div class="desc">${escapeHtml(r.description)}</div>
+            <div class="meta">${escapeHtml(r.collection || '')}${r.person ? ' · '+escapeHtml(r.person) : ''}</div>
+            <div class="meta">${escapeHtml(r.updatedETD || r.confirmedETD || '')}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  });
+  container.innerHTML = `<div class="kanban">${html}</div>`;
+  container.querySelectorAll('.kcard').forEach(c => c.addEventListener('click', e => openEdit(e.currentTarget.dataset.id)));
+}
+
+function escapeHtml(s){
+  if(s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ================= MODAL: ADD / EDIT ================= */
+function resetForm(){
+  ['f_brand','f_season','f_collection','f_soDonMau','f_description','f_person','f_qty',
+   'f_confirmedETD','f_updatedETD','f_shipDate','f_tracking','f_note','f_specialCustom'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f_prodStage').value = 'Chờ bắt đầu';
+  document.getElementById('f_specialStatus').value = 'Ngoài năng lực xưởng';
+  document.getElementById('f_outcome').value = 'Chưa có kết quả';
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('f_image').value = '';
+  pendingImage = null;
+  setStatusGroupUI('production');
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('historyBox').style.display = 'none';
+}
+
+function setStatusGroupUI(group){
+  document.getElementById('tglProduction').classList.toggle('active', group==='production');
+  document.getElementById('tglSpecial').classList.toggle('active', group==='special');
+  document.getElementById('prodStageWrap').style.display = group==='production' ? 'block':'none';
+  document.getElementById('specialStatusWrap').style.display = group==='special' ? 'block':'none';
+}
+
+function openAdd(){
+  editingId = null;
+  resetForm();
+  document.getElementById('modalTitle').textContent = 'Thêm mẫu mới';
+  document.getElementById('recordOverlay').classList.add('open');
+}
+
+function openEdit(id){
+  const rec = records.find(r => r.id === id);
+  if(!rec) return;
+  editingId = id;
+  resetForm();
+  document.getElementById('modalTitle').textContent = 'Sửa mẫu';
+  document.getElementById('f_brand').value = rec.brand || '';
+  document.getElementById('f_season').value = rec.season || '';
+  document.getElementById('f_collection').value = rec.collection || '';
+  document.getElementById('f_soDonMau').value = rec.soDonMau || '';
+  document.getElementById('f_description').value = rec.description || '';
+  document.getElementById('f_person').value = rec.person || '';
+  document.getElementById('f_qty').value = rec.qty || '';
+  document.getElementById('f_confirmedETD').value = rec.confirmedETD || '';
+  document.getElementById('f_updatedETD').value = rec.updatedETD || '';
+  document.getElementById('f_shipDate').value = rec.shipDate || '';
+  document.getElementById('f_tracking').value = rec.tracking || '';
+  document.getElementById('f_note').value = rec.note || '';
+  document.getElementById('f_outcome').value = rec.outcome || 'Chưa có kết quả';
+  setStatusGroupUI(rec.statusGroup);
+  if(rec.statusGroup === 'production'){
+    document.getElementById('f_prodStage').value = rec.prodStage || 'Chờ bắt đầu';
+  } else {
+    document.getElementById('f_specialStatus').value = rec.specialStatus || 'Ngoài năng lực xưởng';
+    document.getElementById('f_specialCustom').style.display = rec.specialStatus === 'Khác' ? 'block':'none';
+    document.getElementById('f_specialCustom').value = rec.specialCustom || '';
+  }
+  if(rec.image){
+    pendingImage = rec.image;
+    document.getElementById('imgPreview').src = rec.image;
+    document.getElementById('imgPreview').style.display = 'block';
+  }
+  document.getElementById('deleteBtn').style.display = 'inline-block';
+  if(rec.history && rec.history.length){
+    const items = rec.history.slice(-6).reverse().map(h => `<div class="h-item">• <strong>${escapeHtml(h.user)}</strong> — ${escapeHtml(h.action)} <span style="opacity:.6;">(${formatTs(h.ts)})</span></div>`).join('');
+    document.getElementById('historyBox').innerHTML = '<div style="font-weight:700; margin-bottom:4px;">Lịch sử cập nhật</div>' + items;
+    document.getElementById('historyBox').style.display = 'block';
+  }
+  document.getElementById('recordOverlay').classList.add('open');
+}
+
+function formatTs(ts){
+  try{
+    const d = new Date(ts);
+    return d.toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch(e){ return ts; }
+}
+
+function closeModal(){
+  document.getElementById('recordOverlay').classList.remove('open');
+}
+
+async function handleImageFile(file){
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 300;
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveRecord(e){
+  e.preventDefault();
+  const now = new Date().toISOString();
+  const group = document.getElementById('tglProduction').classList.contains('active') ? 'production' : 'special';
+
+  const formData = {
+    brand: document.getElementById('f_brand').value.trim(),
+    season: document.getElementById('f_season').value.trim(),
+    collection: document.getElementById('f_collection').value.trim(),
+    soDonMau: document.getElementById('f_soDonMau').value.trim(),
+    description: document.getElementById('f_description').value.trim(),
+    statusGroup: group,
+    prodStage: document.getElementById('f_prodStage').value,
+    specialStatus: document.getElementById('f_specialStatus').value,
+    specialCustom: document.getElementById('f_specialCustom').value.trim(),
+    person: document.getElementById('f_person').value.trim(),
+    outcome: document.getElementById('f_outcome').value,
+    qty: document.getElementById('f_qty').value.trim(),
+    confirmedETD: document.getElementById('f_confirmedETD').value.trim(),
+    updatedETD: document.getElementById('f_updatedETD').value.trim(),
+    shipDate: document.getElementById('f_shipDate').value.trim(),
+    tracking: document.getElementById('f_tracking').value.trim(),
+    note: document.getElementById('f_note').value.trim(),
+    image: pendingImage || null,
+  };
+
+  if(!formData.brand || !formData.description){
+    showToast('Vui lòng nhập Brand và Mô tả mẫu');
+    return;
+  }
+
+  try{
+    if(editingId){
+      const existing = records.find(r => r.id === editingId);
+      const history = existing.history ? existing.history.slice() : [];
+      const changeDesc = summarizeChange(existing, formData);
+      history.push({ts: now, user: currentUser, action: changeDesc});
+      const updated = Object.assign({}, existing, formData, {
+        id: editingId, updatedAt: now, updatedBy: currentUser, history: history.slice(-20)
+      });
+      await saveSampleDoc(editingId, updated);
+      showToast('Đã cập nhật mẫu');
+    } else {
+      const id = 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      const rec = Object.assign({id}, formData, {
+        createdAt: now, updatedAt: now, updatedBy: currentUser,
+        history: [{ts: now, user: currentUser, action: 'Tạo mới mẫu'}]
+      });
+      await saveSampleDoc(id, rec);
+      showToast('Đã thêm mẫu mới');
+    }
+    closeModal();
+  }catch(err){
+    console.error('Save error', err);
+    showToast('Lỗi lưu dữ liệu: ' + err.message);
+  }
+}
+
+function summarizeChange(oldRec, newData){
+  const oldLabel = oldRec.statusGroup === 'production' ? oldRec.prodStage : (oldRec.specialStatus === 'Khác' ? oldRec.specialCustom : oldRec.specialStatus);
+  const newLabel = newData.statusGroup === 'production' ? newData.prodStage : (newData.specialStatus === 'Khác' ? newData.specialCustom : newData.specialStatus);
+  if(oldLabel !== newLabel) return `Đổi trạng thái: ${oldLabel || '—'} → ${newLabel || '—'}`;
+  if(oldRec.outcome !== newData.outcome) return `Đổi kết quả: ${oldRec.outcome || '—'} → ${newData.outcome || '—'}`;
+  return 'Cập nhật thông tin mẫu';
+}
+
+function askDelete(id){
+  pendingDeleteId = id;
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+
+async function confirmDelete(){
+  if(pendingDeleteId){
+    try{
+      await deleteSampleDoc(pendingDeleteId);
+      showToast('Đã xoá mẫu');
+    }catch(err){
+      console.error('Delete error', err);
+      showToast('Lỗi xoá dữ liệu: ' + err.message);
+    }
+    pendingDeleteId = null;
+  }
+  document.getElementById('confirmOverlay').classList.remove('open');
+  closeModal();
+}
+
+/* ================= EXPORT ================= */
+function exportCsv(){
+  const list = getFiltered();
+  const headers = ['Brand','Season','Collection','Số đơn mẫu','Mô tả','Trạng thái','Người phụ trách','Kết quả','Số lượng','Confirmed ETD','Updated ETD','Ship date','Tracking','Ghi chú'];
+  const rows = list.map(r => [
+    r.brand, r.season, r.collection, r.soDonMau, r.description, statusLabel(r), r.person, r.outcome,
+    r.qty, r.confirmedETD, r.updatedETD, r.shipDate, r.tracking, r.note
+  ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mau-phat-trien-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ================= TOAST ================= */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ================= EVENTS ================= */
+function bindEvents(){
+  document.getElementById('addBtn').addEventListener('click', openAdd);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('recordForm').addEventListener('submit', saveRecord);
+  document.getElementById('deleteBtn').addEventListener('click', () => askDelete(editingId));
+  document.getElementById('confirmCancelBtn').addEventListener('click', () => document.getElementById('confirmOverlay').classList.remove('open'));
+  document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+  document.getElementById('tglProduction').addEventListener('click', () => setStatusGroupUI('production'));
+  document.getElementById('tglSpecial').addEventListener('click', () => setStatusGroupUI('special'));
+  document.getElementById('f_specialStatus').addEventListener('change', e => {
+    document.getElementById('f_specialCustom').style.display = e.target.value === 'Khác' ? 'block' : 'none';
+  });
+
+  document.getElementById('f_image').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const dataUrl = await handleImageFile(file);
+    pendingImage = dataUrl;
+    document.getElementById('imgPreview').src = dataUrl;
+    document.getElementById('imgPreview').style.display = 'block';
+  });
+  document.getElementById('clearImgBtn').addEventListener('click', () => {
+    pendingImage = null;
+    document.getElementById('imgPreview').style.display = 'none';
+    document.getElementById('f_image').value = '';
+  });
+
+  document.getElementById('userChip').addEventListener('click', () => {
+    if(!appStarted) return;
+    document.getElementById('nameInput').value = currentUser;
+    showLoginStep(false, 'Đổi tên hiển thị', 'Tên này sẽ hiện trong lịch sử cập nhật.');
+  });
+  document.getElementById('saveNameBtn').addEventListener('click', handleLoginSubmit);
+  document.getElementById('passcodeInput').addEventListener('keydown', e => { if(e.key==='Enter') handleLoginSubmit(); });
+  document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key==='Enter') handleLoginSubmit(); });
+
+  ['searchInput'].forEach(id => document.getElementById(id).addEventListener('input', () => { if(currentView==='table') renderTable(); else renderKanban(); }));
+  ['filterBrand','filterSeason','filterCollection','filterPerson','filterOverdue'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { if(currentView==='table') renderTable(); else renderKanban(); });
+  });
+
+  document.getElementById('viewTableBtn').addEventListener('click', () => switchView('table'));
+  document.getElementById('viewKanbanBtn').addEventListener('click', () => switchView('kanban'));
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+  document.getElementById('recordOverlay').addEventListener('click', e => { if(e.target.id === 'recordOverlay') closeModal(); });
+}
+
+function switchView(v){
+  currentView = v;
+  document.getElementById('viewTableBtn').classList.toggle('active', v==='table');
+  document.getElementById('viewKanbanBtn').classList.toggle('active', v==='kanban');
+  document.getElementById('tableView').style.display = v==='table' ? 'block':'none';
+  document.getElementById('kanbanView').style.display = v==='kanban' ? 'block':'none';
+  if(v==='table') renderTable(); else renderKanban();
+}
+
+bindEvents();
+</script>
+</body>
+</html>
