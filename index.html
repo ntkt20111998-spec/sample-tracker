@@ -592,6 +592,11 @@
           <label>Giá trị ước tính (USD)</label>
           <input type="text" id="o_estimatedValue" placeholder="VD: 5200">
         </div>
+        <div>
+          <label>Người phụ trách</label>
+          <input type="text" id="o_personInCharge" list="teamMembersDatalist" placeholder="Nhập tên người phụ trách">
+          <datalist id="teamMembersDatalist"></datalist>
+        </div>
         <div class="full">
           <label>Sản phẩm / Nội dung inquiry</label>
           <input type="text" id="o_productDesc" placeholder="VD: 08183 – 18in Acacia Charcuterie Tray">
@@ -722,7 +727,7 @@ function customersCollection(){ return db.collection(CUSTOMERS_COL); }
 function opportunitiesCollection(){ return db.collection(OPPORTUNITIES_COL); }
 
 /* ================= DANH MỤC (dropdown lists — theo file THEO DÕI CƠ HỘI BÁN HÀNG) ================= */
-const TEAM_MEMBERS = ['Tiên','Thanh','Tuyến','Dũng','Dung','Mi','Duyên','Nga','Tiến'];
+const TEAM_MEMBERS = ['Tiên','Thanh','Tuyên','Dũng','Dung','Mi','Duyên','Nga','Tiến'];
 const OPP_TYPES = ['Chào hàng (SP có sẵn)','Phát triển mẫu mới (NPD)','Đơn hàng lặp lại'];
 const OPP_CLASSES = ['LEAD','REGULAR'];
 const OPP_STATUSES = ['Mới nhận','Đang xử lý','Đã báo giá','Chờ khách phản hồi','Làm mẫu','Thắng đơn','Không thành công','Tạm dừng'];
@@ -1073,6 +1078,7 @@ function initStaticDropdowns(){
   fillSelect('oppFilterStatus', OPP_STATUSES, 'Tất cả trạng thái');
   fillSelect('oppFilterMarket', MARKETS, 'Tất cả thị trường');
   fillSelect('oppFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
+  fillDatalist('teamMembersDatalist', TEAM_MEMBERS);
 
   fillSelect('custFilterMarket', MARKETS, 'Tất cả thị trường');
   fillSelect('custFilterAccountSize', ACCOUNT_SIZES, 'Tất cả quy mô tài khoản');
@@ -1427,7 +1433,8 @@ function getFilteredOpportunities(){
     if(type && o.opportunityType !== type) return false;
     if(status && o.status !== status) return false;
     if(market && (!c || c.market !== market)) return false;
-    if(person && (!c || c.personInCharge !== person)) return false;
+    const oppPerson = o.personInCharge || (c ? c.personInCharge : '');
+    if(person && oppPerson !== person) return false;
     if(onlyOverdue && !isOppFollowupOverdue(o)) return false;
     if(q){
       const hay = [c ? c.companyName : '', c ? c.customerCode : '', o.productDesc, o.productCategory].join(' ').toLowerCase();
@@ -1437,8 +1444,16 @@ function getFilteredOpportunities(){
   });
 }
 
+function populateOppFilterPerson(){
+  const used = new Set(TEAM_MEMBERS);
+  opportunities.forEach(o => { if(o.personInCharge) used.add(o.personInCharge); });
+  customers.forEach(c => { if(c.personInCharge) used.add(c.personInCharge); });
+  fillSelect('oppFilterPerson', [...used].sort(), 'Tất cả người phụ trách');
+}
+
 function renderOpportunitiesView(){
   populateCustomerSelect();
+  populateOppFilterPerson();
   renderOppStats();
   if(oppView === 'table') renderOppTable();
   else if(oppView === 'kanban') renderOppKanban();
@@ -1487,7 +1502,7 @@ function renderOppTable(){
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
         <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
-        <td>${escapeHtml(c ? c.personInCharge : '—')}</td>
+        <td>${escapeHtml(o.personInCharge || (c ? c.personInCharge : '') || '—')}</td>
         <td>
           <div class="row-actions">
             <button class="icon-btn opp-edit-btn" data-id="${o.id}" title="Sửa">✎</button>
@@ -1667,7 +1682,7 @@ function switchOppView(v){
 }
 
 function resetOppForm(){
-  ['o_week','o_estimatedValue','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput'].forEach(id => document.getElementById(id).value = '');
+  ['o_week','o_estimatedValue','o_personInCharge','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput'].forEach(id => document.getElementById(id).value = '');
   ['o_dateReceived','o_deadline','o_nextFollowUp'].forEach(id => document.getElementById(id).value = '');
   ['o_type','o_classification','o_customerId','o_productCategory','o_priority','o_status','o_winLossReason'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('o_winLossWrap').style.display = 'none';
@@ -1709,6 +1724,7 @@ function openEditOpportunity(id){
   document.getElementById('o_customerId').value = o.customerId || '';
   document.getElementById('o_productCategory').value = o.productCategory || '';
   document.getElementById('o_estimatedValue').value = o.estimatedValue || '';
+  document.getElementById('o_personInCharge').value = o.personInCharge || (customerById(o.customerId) ? (customerById(o.customerId).personInCharge || '') : '');
   document.getElementById('o_productDesc').value = o.productDesc || '';
   document.getElementById('o_requirements').value = o.requirements || '';
   document.getElementById('o_deadline').value = o.deadline || '';
@@ -1771,6 +1787,7 @@ async function saveOpportunity(e){
     customerId,
     productCategory: document.getElementById('o_productCategory').value,
     estimatedValue: document.getElementById('o_estimatedValue').value.trim(),
+    personInCharge: document.getElementById('o_personInCharge').value.trim(),
     productDesc: document.getElementById('o_productDesc').value.trim(),
     requirements: document.getElementById('o_requirements').value.trim(),
     deadline: document.getElementById('o_deadline').value,
@@ -2063,7 +2080,7 @@ function exportOppCsv(){
   const rows = list.map(o => {
     const c = customerById(o.customerId) || {};
     return [
-      c.companyName, c.customerCode, c.market, c.role, c.channel, c.accountSize, c.strategic, c.contactPerson, c.personInCharge,
+      c.companyName, c.customerCode, c.market, c.role, c.channel, c.accountSize, c.strategic, c.contactPerson, (o.personInCharge || c.personInCharge),
       o.opportunityType, o.classification, o.productCategory, o.productDesc, o.requirements, o.estimatedValue,
       formatDateOnly(o.deadline), o.priority, o.status, o.nextAction, formatDateOnly(o.nextFollowUp), o.customerFeedback, o.winLossReason, o.notes
     ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
