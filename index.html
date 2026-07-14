@@ -913,11 +913,8 @@ async function startApp(){
   appStarted = true;
   document.getElementById('userChip').textContent = '👤 ' + currentUser;
   document.getElementById('nameOverlay').classList.remove('open');
-  try{
-    await ensureSeeded();
-  }catch(e){
-    console.error('Seed error', e);
-  }
+  // Auto-seed đã bị tắt vĩnh viễn (chỉ dùng 1 lần lúc khởi tạo app) để tránh
+  // tự động nạp lại dữ liệu mẫu cũ mỗi khi collection 'samples' bị xóa trống.
   attachRecordsListener();
   attachCustomersListener();
   attachOpportunitiesListener();
