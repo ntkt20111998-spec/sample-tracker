@@ -1057,11 +1057,14 @@ function renderOppTable(){
   const rows = list.map(o => {
     const c = customerById(o.customerId);
     const overdue = isOppFollowupOverdue(o);
+    const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : (o.productCategory || '—');
     return `
       <tr class="${overdue ? 'overdue-row':''}" data-id="${o.id}">
+        <td>${escapeHtml(formatDateOnly(o.dateReceived) || '—')}</td>
+        <td>${oppImageCellHtml(o)}</td>
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
-        <td>${escapeHtml(o.productDesc || '—')}${oppImageThumbHtml(o)}</td>
-        <td>${escapeHtml(c ? c.market : '—')}</td>
+        <td>${escapeHtml(o.productDesc || '—')}</td>
+        <td>${escapeHtml(cats)}</td>
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
         <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
@@ -1078,7 +1081,7 @@ function renderOppTable(){
   container.innerHTML = `
     <table>
       <thead><tr>
-        <th>Khách hàng</th><th>Sản phẩm / Inquiry</th><th>Thị trường</th>
+        <th>Ngày nhận</th><th>Hình ảnh</th><th>Khách hàng</th><th>Sản phẩm / Inquiry</th><th>Ngành hàng sản phẩm</th>
         <th>Ưu tiên</th><th>Trạng thái</th><th>Follow-up kế tiếp</th><th>Phụ trách</th><th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -1416,6 +1419,11 @@ function oppImageThumbHtml(o){
   if(!o.images || !o.images.length) return '';
   const rest = o.images.length - 1;
   return `<div style="margin-top:4px;"><img class="thumb" src="${o.images[0]}" data-full="${o.images[0]}" title="${o.images.length} ảnh đính kèm">${rest > 0 ? ` <span class="opp-thumb-more">+${rest}</span>` : ''}</div>`;
+}
+function oppImageCellHtml(o){
+  if(!o.images || !o.images.length) return `<div class="thumb-empty">—</div>`;
+  const rest = o.images.length - 1;
+  return `<img class="thumb" src="${o.images[0]}" data-full="${o.images[0]}" title="${o.images.length} ảnh đính kèm">${rest > 0 ? ` <span class="opp-thumb-more">+${rest}</span>` : ''}`;
 }
 
 /* ================= TRẠNG THÁI ĐƠN MẪU (đọc từ Google Sheet "Đơn mẫu 2026") ================= */
