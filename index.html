@@ -99,6 +99,9 @@
   }
   .view-toggle button.active{background:var(--ink); color:#fff;}
   .checkbox-pill{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-soft);}
+  .checkbox-tags{display:flex; flex-wrap:wrap; gap:6px;}
+  .checkbox-tags label{display:flex; align-items:center; gap:5px; font-size:12px; padding:5px 9px; border:1px solid var(--line); border-radius:14px; cursor:pointer; background:#FCFAF6; color:var(--ink-soft);}
+  .checkbox-tags input{margin:0;}
   .spacer{flex:1;}
 
   /* ---------- table ---------- */
@@ -335,7 +338,6 @@
 
   <div class="toolbar">
     <input type="text" id="oppSearchInput" placeholder="Tìm khách hàng, mã KH, sản phẩm...">
-    <select id="oppFilterType"><option value="">Tất cả loại cơ hội</option></select>
     <select id="oppFilterStatus"><option value="">Tất cả trạng thái</option></select>
     <select id="oppFilterMarket"><option value="">Tất cả thị trường</option></select>
     <select id="oppFilterPerson"><option value="">Tất cả người phụ trách</option></select>
@@ -519,16 +521,8 @@
           <select id="c_role"><option value="">— Chọn —</option></select>
         </div>
         <div>
-          <label>Kênh bán</label>
-          <select id="c_channel"><option value="">— Chọn —</option></select>
-        </div>
-        <div>
           <label>Quy mô tài khoản</label>
           <select id="c_accountSize"><option value="">— Chọn —</option></select>
-        </div>
-        <div>
-          <label>Khách chiến lược?</label>
-          <select id="c_strategic"><option value="">— Chọn —</option></select>
         </div>
         <div class="full">
           <label>Người liên hệ (Email)</label>
@@ -564,10 +558,6 @@
           <input type="date" id="o_dateReceived">
         </div>
         <div>
-          <label>Loại cơ hội</label>
-          <select id="o_type"><option value="">— Chọn —</option></select>
-        </div>
-        <div>
           <label>Phân loại</label>
           <select id="o_classification"><option value="">— Chọn —</option></select>
         </div>
@@ -584,13 +574,9 @@
             <div id="oppCustomerInfo"><div class="info-empty">Chọn khách hàng để xem thông tin.</div></div>
           </div>
         </div>
-        <div>
+        <div class="full">
           <label>Ngành hàng sản phẩm</label>
-          <select id="o_productCategory"><option value="">— Chọn —</option></select>
-        </div>
-        <div>
-          <label>Giá trị ước tính (USD)</label>
-          <input type="text" id="o_estimatedValue" placeholder="VD: 5200">
+          <div class="checkbox-tags" id="o_productCategories"></div>
         </div>
         <div>
           <label>Người phụ trách</label>
@@ -728,22 +714,19 @@ function opportunitiesCollection(){ return db.collection(OPPORTUNITIES_COL); }
 
 /* ================= DANH MỤC (dropdown lists — theo file THEO DÕI CƠ HỘI BÁN HÀNG) ================= */
 const TEAM_MEMBERS = ['Tiên','Thanh','Tuyên','Dũng','Dung','Mi','Duyên','Nga','Tiến'];
-const OPP_TYPES = ['Chào hàng (SP có sẵn)','Phát triển mẫu mới (NPD)','Đơn hàng lặp lại'];
 const OPP_CLASSES = ['LEAD','REGULAR'];
-const OPP_STATUSES = ['Mới nhận','Đang xử lý','Đã báo giá','Chờ khách phản hồi','Làm mẫu','Thắng đơn','Không thành công','Tạm dừng'];
+const OPP_STATUSES = ['Nhận thông tin','Đang xử lý YCBG / YCTK','Đã báo giá','Đang đàm phán giá','Đã gửi render','Triển khai mẫu','Review mẫu','Đóng gói & gửi mẫu','Chờ khách phản hồi','Thắng đơn','Không thành công','Tạm dừng'];
 const OPP_PRIORITIES = ['Cao','Trung bình','Thấp'];
-const MARKETS = ['US Market','EU Market','UK Market','AUS Market','Canada Market','LatAm Market','Domestic (VN)','Other'];
+const MARKETS = ['North America Market','South America Market','EU Market','Australia Market','Asia Market','Other'];
 const CUST_ROLES = ['Retailer','Distributor','Sourcing Agent','Khác'];
-const SALES_CHANNELS = ['Offline','E-commerce','Omni-channel'];
-const ACCOUNT_SIZES = ['A','B','C','P'];
+const ACCOUNT_SIZES = ['A – Key / Strategic','B – Core / Growing','C – Maintain','D – Low Priority / Observe'];
 const ACCOUNT_SIZE_DEFS = {
   A: 'Doanh thu ≥$100K/năm (12 tháng gần nhất) hoặc khách chiến lược',
   B: 'Doanh thu $30K–$100K/năm',
   C: 'Doanh thu <$30K/năm hoặc khách mới đã có đơn',
   P: 'Prospect, chưa từng đặt hàng (khớp với Phân loại = LEAD)'
 };
-const STRATEGIC_OPTIONS = ['Có','Không'];
-const PRODUCT_CATEGORIES = ['Khay','Tô','Hộp / thùng / office','Khung gương / Khung hình','Bàn / Ghế / Tủ','Kệ','Tấm lót','Thớt','Muỗng nĩa','Game','Trang trí','Khác'];
+const PRODUCT_CATEGORIES =['Khay','Tô','Hộp / thùng / office','Khung gương / Khung hình','Bàn / Ghế / Tủ','Kệ','Tấm lót','Thớt','Muỗng nĩa','Game','Trang trí','Khác'];
 const WIN_LOSS_REASONS = ['Giá cạnh tranh hơn','Thời gian giao hàng không đáp ứng','Chất lượng mẫu không đạt','MOQ không phù hợp','Đối thủ thắng','Khách dừng dự án','Khác'];
 const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
 
@@ -1060,18 +1043,14 @@ function initStaticDropdowns(){
   fillSelect('c_person', TEAM_MEMBERS, '— Chọn —');
   fillSelect('c_market', MARKETS, '— Chọn —');
   fillSelect('c_role', CUST_ROLES, '— Chọn —');
-  fillSelect('c_channel', SALES_CHANNELS, '— Chọn —');
   fillSelect('c_accountSize', ACCOUNT_SIZES, '— Chọn —');
-  fillSelect('c_strategic', STRATEGIC_OPTIONS, '— Chọn —');
 
-  fillSelect('o_type', OPP_TYPES, '— Chọn —');
   fillSelect('o_classification', OPP_CLASSES, '— Chọn —');
-  fillSelect('o_productCategory', PRODUCT_CATEGORIES, '— Chọn —');
+  populateProductCategoriesCheckboxes();
   fillSelect('o_priority', OPP_PRIORITIES, '— Chọn —');
   fillSelect('o_status', OPP_STATUSES, '— Chọn —');
   fillSelect('o_winLossReason', WIN_LOSS_REASONS, '— Chọn —');
 
-  fillSelect('oppFilterType', OPP_TYPES, 'Tất cả loại cơ hội');
   fillSelect('oppFilterStatus', OPP_STATUSES, 'Tất cả trạng thái');
   fillSelect('oppFilterMarket', MARKETS, 'Tất cả thị trường');
   fillSelect('oppFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
@@ -1096,6 +1075,17 @@ function fillSelect(id, values, allLabel){
 }
 function fillDatalist(id, values){
   document.getElementById(id).innerHTML = values.map(v=>`<option value="${escapeHtml(v)}">`).join('');
+}
+function populateProductCategoriesCheckboxes(){
+  const wrap = document.getElementById('o_productCategories');
+  wrap.innerHTML = PRODUCT_CATEGORIES.map(v => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`).join('');
+}
+function getSelectedProductCategories(){
+  return Array.from(document.querySelectorAll('#o_productCategories input[type=checkbox]:checked')).map(cb => cb.value);
+}
+function setSelectedProductCategories(cats){
+  const set = new Set(cats || []);
+  document.querySelectorAll('#o_productCategories input[type=checkbox]').forEach(cb => { cb.checked = set.has(cb.value); });
 }
 function populatePersonInChargeSelect(){
   const sel = document.getElementById('o_personInCharge');
@@ -1273,9 +1263,7 @@ function renderCustomersTable(){
       <td>${escapeHtml(c.customerCode || '—')}</td>
       <td>${escapeHtml(c.market || '—')}</td>
       <td>${escapeHtml(c.role || '—')}</td>
-      <td>${escapeHtml(c.channel || '—')}</td>
       <td><span class="badge production">${escapeHtml(c.accountSize || '—')}</span></td>
-      <td>${c.strategic === 'Có' ? '<span class="badge outcome-approved">Có</span>' : escapeHtml(c.strategic || '—')}</td>
       <td>${escapeHtml(c.personInCharge || '—')}</td>
       <td>
         <div class="row-actions">
@@ -1288,7 +1276,7 @@ function renderCustomersTable(){
     <table>
       <thead><tr>
         <th>Khách hàng / Công ty</th><th>Mã KH</th><th>Thị trường</th><th>Vai trò</th>
-        <th>Kênh bán</th><th>Quy mô TK</th><th>Chiến lược?</th><th>Người phụ trách</th><th></th>
+        <th>Quy mô TK</th><th>Người phụ trách</th><th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -1298,7 +1286,7 @@ function renderCustomersTable(){
 
 function resetCustomerForm(){
   ['c_name','c_code','c_contact','c_note'].forEach(id => document.getElementById(id).value = '');
-  ['c_person','c_market','c_role','c_channel','c_accountSize','c_strategic'].forEach(id => document.getElementById(id).value = '');
+  ['c_person','c_market','c_role','c_accountSize'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('c_nameHint').textContent = '';
   document.getElementById('custDeleteBtn').style.display = 'none';
 }
@@ -1321,9 +1309,7 @@ function openEditCustomer(id){
   document.getElementById('c_person').value = c.personInCharge || '';
   document.getElementById('c_market').value = c.market || '';
   document.getElementById('c_role').value = c.role || '';
-  document.getElementById('c_channel').value = c.channel || '';
   document.getElementById('c_accountSize').value = c.accountSize || '';
-  document.getElementById('c_strategic').value = c.strategic || '';
   document.getElementById('c_contact').value = c.contactPerson || '';
   document.getElementById('c_note').value = c.note || '';
   document.getElementById('custDeleteBtn').style.display = 'inline-block';
@@ -1359,9 +1345,7 @@ async function saveCustomer(e, opts){
     personInCharge: document.getElementById('c_person').value,
     market: document.getElementById('c_market').value,
     role: document.getElementById('c_role').value,
-    channel: document.getElementById('c_channel').value,
     accountSize: document.getElementById('c_accountSize').value,
-    strategic: document.getElementById('c_strategic').value,
     contactPerson: document.getElementById('c_contact').value.trim(),
     note: document.getElementById('c_note').value.trim(),
   };
@@ -1391,9 +1375,7 @@ function buildCustomerInfoBox(c){
     ['Mã KH', c.customerCode || '—'],
     ['Thị trường', c.market || '—'],
     ['Vai trò KH', c.role || '—'],
-    ['Kênh bán', c.channel || '—'],
     ['Quy mô TK', c.accountSize || '—'],
-    ['Chiến lược?', c.strategic || '—'],
     ['Người liên hệ', c.contactPerson || '—'],
     ['Người phụ trách', c.personInCharge || '—'],
   ];
@@ -1427,7 +1409,6 @@ function oppSampleSummary(o){
 
 function getFilteredOpportunities(){
   const q = document.getElementById('oppSearchInput').value.trim().toLowerCase();
-  const type = document.getElementById('oppFilterType').value;
   const status = document.getElementById('oppFilterStatus').value;
   const market = document.getElementById('oppFilterMarket').value;
   const person = document.getElementById('oppFilterPerson').value;
@@ -1435,14 +1416,14 @@ function getFilteredOpportunities(){
 
   return opportunities.filter(o => {
     const c = customerById(o.customerId);
-    if(type && o.opportunityType !== type) return false;
     if(status && o.status !== status) return false;
     if(market && (!c || c.market !== market)) return false;
     const oppPerson = o.personInCharge || (c ? c.personInCharge : '');
     if(person && oppPerson !== person) return false;
     if(onlyOverdue && !isOppFollowupOverdue(o)) return false;
     if(q){
-      const hay = [c ? c.companyName : '', c ? c.customerCode : '', o.productDesc, o.productCategory].join(' ').toLowerCase();
+      const cats = o.productCategories || (o.productCategory ? [o.productCategory] : []);
+      const hay = [c ? c.companyName : '', c ? c.customerCode : '', o.productDesc, cats.join(' ')].join(' ').toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -1471,13 +1452,10 @@ function renderOppStats(){
   const closed = opportunities.filter(o => OPP_CLOSED_STATUSES.includes(o.status));
   const won = opportunities.filter(o => o.status === 'Thắng đơn');
   const winRate = closed.length ? Math.round(won.length / closed.length * 100) : 0;
-  const openValue = opportunities.filter(o => !OPP_CLOSED_STATUSES.includes(o.status) && o.status !== 'Tạm dừng')
-    .reduce((s,o) => s + (parseFloat(o.estimatedValue)||0), 0);
   const overdueCount = opportunities.filter(isOppFollowupOverdue).length;
   const html = `
     <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số cơ hội</div></div>
     <div class="stat-card"><div class="num">${winRate}%</div><div class="label">Tỷ lệ thắng</div></div>
-    <div class="stat-card"><div class="num">$${openValue.toLocaleString('en-US')}</div><div class="label">Pipeline đang mở</div></div>
     <div class="stat-card overdue"><div class="num">${overdueCount}</div><div class="label">Quá hạn follow-up</div></div>
   `;
   document.getElementById('oppStatsRow').innerHTML = html;
@@ -1500,10 +1478,8 @@ function renderOppTable(){
     return `
       <tr class="${overdue ? 'overdue-row':''}" data-id="${o.id}">
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
-        <td>${escapeHtml(o.opportunityType || '—')}</td>
         <td>${escapeHtml(o.productDesc || '—')}${oppSampleSummary(o)}</td>
         <td>${escapeHtml(c ? c.market : '—')}</td>
-        <td>${o.estimatedValue ? '$'+Number(o.estimatedValue).toLocaleString('en-US') : '—'}</td>
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
         <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
@@ -1519,8 +1495,8 @@ function renderOppTable(){
   container.innerHTML = `
     <table>
       <thead><tr>
-        <th>Khách hàng</th><th>Loại cơ hội</th><th>Sản phẩm / Inquiry</th><th>Thị trường</th>
-        <th>Giá trị (USD)</th><th>Ưu tiên</th><th>Trạng thái</th><th>Follow-up kế tiếp</th><th>Phụ trách</th><th></th>
+        <th>Khách hàng</th><th>Sản phẩm / Inquiry</th><th>Thị trường</th>
+        <th>Ưu tiên</th><th>Trạng thái</th><th>Follow-up kế tiếp</th><th>Phụ trách</th><th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -1544,9 +1520,9 @@ function renderOppKanban(){
         ${items.map(o => {
           const c = customerById(o.customerId);
           return `<div class="kcard ${isOppFollowupOverdue(o)?'overdue':''}" data-id="${o.id}">
-            <div class="brand-line"><span>${escapeHtml(c ? c.companyName : '—')}</span><span>${o.estimatedValue ? '$'+Number(o.estimatedValue).toLocaleString('en-US') : ''}</span></div>
+            <div class="brand-line"><span>${escapeHtml(c ? c.companyName : '—')}</span></div>
             <div class="desc">${escapeHtml(o.productDesc || '')}</div>
-            <div class="meta">${escapeHtml(o.opportunityType || '')}${c && c.market ? ' · '+escapeHtml(c.market) : ''}</div>
+            <div class="meta">${c && c.market ? escapeHtml(c.market) : ''}</div>
             <div class="meta">${escapeHtml(formatDateOnly(o.nextFollowUp) || '')}</div>
             ${oppSampleSummary(o)}
           </div>`;
@@ -1591,17 +1567,22 @@ function renderOppDashboard(){
       <tbody>${body || '<tr><td colspan="4">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
   }
 
-  const byType = breakdownBy(o=>o.opportunityType, OPP_TYPES);
   const byStatus = OPP_STATUSES.map(s => ({k:s, count: opportunities.filter(o=>o.status===s).length}));
   const byMarket = breakdownBy(o => { const c=customerById(o.customerId); return c?c.market:''; }, MARKETS);
   const byRole = breakdownBy(o => { const c=customerById(o.customerId); return c?c.role:''; }, CUST_ROLES);
   const bySize = breakdownBy(o => { const c=customerById(o.customerId); return c?c.accountSize:''; }, ACCOUNT_SIZES);
-  const byCategory = breakdownBy(o=>o.productCategory, PRODUCT_CATEGORIES);
+  const byCategory = PRODUCT_CATEGORIES.map(cat => {
+    const inGroup = opportunities.filter(o => (o.productCategories || (o.productCategory ? [o.productCategory] : [])).includes(cat));
+    const count = inGroup.length;
+    const won = inGroup.filter(o => o.status === 'Thắng đơn').length;
+    const lost = inGroup.filter(o => o.status === 'Không thành công').length;
+    const winRate = (won+lost) ? Math.round(won/(won+lost)*100) : null;
+    return {k: cat, count, winRate};
+  });
   const byReason = WIN_LOSS_REASONS.map(r => ({k:r, count: opportunities.filter(o=>o.winLossReason===r).length}));
 
   container.innerHTML = `
     <div class="dash-grid">
-      ${table('Theo loại cơ hội', byType, true, true)}
       ${table('Theo trạng thái', byStatus, false, false)}
       ${table('Theo thị trường', byMarket, false, true)}
       ${table('Theo vai trò khách hàng', byRole, false, true)}
@@ -1648,7 +1629,7 @@ function renderOppCustomerProgress(){
       return `
         <div class="cpo-block">
           <div class="cpo-title" data-opp-id="${o.id}">
-            <span>${escapeHtml(o.productDesc || o.opportunityType || 'Cơ hội')}</span>
+            <span>${escapeHtml(o.productDesc || 'Cơ hội')}</span>
             <span class="badge special">${escapeHtml(o.status || '—')}</span>
           </div>
           <div class="linked-samples">${items}</div>
@@ -1687,9 +1668,10 @@ function switchOppView(v){
 }
 
 function resetOppForm(){
-  ['o_week','o_estimatedValue','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput'].forEach(id => document.getElementById(id).value = '');
+  ['o_week','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput'].forEach(id => document.getElementById(id).value = '');
   ['o_dateReceived','o_deadline','o_nextFollowUp'].forEach(id => document.getElementById(id).value = '');
-  ['o_type','o_classification','o_customerId','o_productCategory','o_priority','o_status','o_winLossReason','o_personInCharge'].forEach(id => document.getElementById(id).value = '');
+  ['o_classification','o_customerId','o_priority','o_status','o_winLossReason','o_personInCharge'].forEach(id => document.getElementById(id).value = '');
+  setSelectedProductCategories([]);
   document.getElementById('o_personInChargeOther').style.display = 'none';
   document.getElementById('o_personInChargeOther').value = '';
   document.getElementById('o_winLossWrap').style.display = 'none';
@@ -1726,11 +1708,9 @@ function openEditOpportunity(id){
   document.getElementById('oppModalTitle').textContent = 'Sửa cơ hội';
   document.getElementById('o_week').value = o.week || '';
   document.getElementById('o_dateReceived').value = o.dateReceived || '';
-  document.getElementById('o_type').value = o.opportunityType || '';
   document.getElementById('o_classification').value = o.classification || '';
   document.getElementById('o_customerId').value = o.customerId || '';
-  document.getElementById('o_productCategory').value = o.productCategory || '';
-  document.getElementById('o_estimatedValue').value = o.estimatedValue || '';
+  setSelectedProductCategories(o.productCategories || (o.productCategory ? [o.productCategory] : []));
   {
     const resolvedPerson = o.personInCharge || (customerById(o.customerId) ? (customerById(o.customerId).personInCharge || '') : '');
     const personSel = document.getElementById('o_personInCharge');
@@ -1806,11 +1786,9 @@ async function saveOpportunity(e){
   const formData = {
     week: document.getElementById('o_week').value.trim(),
     dateReceived: document.getElementById('o_dateReceived').value,
-    opportunityType: document.getElementById('o_type').value,
     classification: document.getElementById('o_classification').value,
     customerId,
-    productCategory: document.getElementById('o_productCategory').value,
-    estimatedValue: document.getElementById('o_estimatedValue').value.trim(),
+    productCategories: getSelectedProductCategories(),
     personInCharge: (document.getElementById('o_personInCharge').value === '__other__')
       ? document.getElementById('o_personInChargeOther').value.trim()
       : document.getElementById('o_personInCharge').value,
@@ -1853,7 +1831,7 @@ function openCreateSampleFromOpportunity(){
   document.getElementById('modalTitle').textContent = 'Thêm mẫu (từ cơ hội bán hàng)';
   document.getElementById('f_brand').value = c ? c.companyName : '';
   document.getElementById('f_description').value = o.productDesc || '';
-  document.getElementById('f_collection').value = o.productCategory || '';
+  document.getElementById('f_collection').value = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : (o.productCategory || '');
   document.getElementById('f_person').value = c ? c.personInCharge : '';
   document.getElementById('f_qty').value = '';
   pendingOpportunityIdForSample = o.id;
@@ -2100,14 +2078,15 @@ function exportCsv(){
 
 function exportOppCsv(){
   const list = getFilteredOpportunities();
-  const headers = ['Khách hàng','Mã KH','Thị trường','Vai trò KH','Kênh bán','Quy mô TK','Chiến lược?','Người liên hệ','Người phụ trách',
-    'Loại cơ hội','Phân loại','Ngành hàng','Sản phẩm/Inquiry','Yêu cầu chính','Giá trị (USD)','Deadline','Ưu tiên','Trạng thái',
+  const headers = ['Khách hàng','Mã KH','Thị trường','Vai trò KH','Quy mô TK','Người liên hệ','Người phụ trách',
+    'Phân loại','Ngành hàng','Sản phẩm/Inquiry','Yêu cầu chính','Deadline','Ưu tiên','Trạng thái',
     'Hành động tiếp theo','Follow-up kế tiếp','Phản hồi khách','Lý do thắng/thua','Ghi chú'];
   const rows = list.map(o => {
     const c = customerById(o.customerId) || {};
+    const cats = (o.productCategories || (o.productCategory ? [o.productCategory] : [])).join('; ');
     return [
-      c.companyName, c.customerCode, c.market, c.role, c.channel, c.accountSize, c.strategic, c.contactPerson, (o.personInCharge || c.personInCharge),
-      o.opportunityType, o.classification, o.productCategory, o.productDesc, o.requirements, o.estimatedValue,
+      c.companyName, c.customerCode, c.market, c.role, c.accountSize, c.contactPerson, (o.personInCharge || c.personInCharge),
+      o.classification, cats, o.productDesc, o.requirements,
       formatDateOnly(o.deadline), o.priority, o.status, o.nextAction, formatDateOnly(o.nextFollowUp), o.customerFeedback, o.winLossReason, o.notes
     ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
   });
@@ -2221,7 +2200,7 @@ function bindEvents(){
   document.getElementById('oppCreateSampleBtn').addEventListener('click', openCreateSampleFromOpportunity);
 
   ['oppSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderOpportunitiesView));
-  ['oppFilterType','oppFilterStatus','oppFilterMarket','oppFilterPerson','oppFilterOverdue'].forEach(id => {
+  ['oppFilterStatus','oppFilterMarket','oppFilterPerson','oppFilterOverdue'].forEach(id => {
     document.getElementById(id).addEventListener('change', renderOpportunitiesView);
   });
   document.getElementById('oppViewTableBtn').addEventListener('click', () => switchOppView('table'));
