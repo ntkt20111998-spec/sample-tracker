@@ -102,6 +102,12 @@
   .checkbox-tags{display:flex; flex-wrap:wrap; gap:6px;}
   .checkbox-tags label{display:flex; align-items:center; gap:5px; font-size:12px; padding:5px 9px; border:1px solid var(--line); border-radius:14px; cursor:pointer; background:#FCFAF6; color:var(--ink-soft);}
   .checkbox-tags input{margin:0;}
+  .opp-img-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;}
+  .opp-img-item{position:relative; width:64px; height:64px;}
+  .opp-img-item img{width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer; display:block;}
+  .opp-img-item img:hover{border-color:var(--accent);}
+  .opp-img-item .opp-img-del{position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:var(--rust); color:#fff; border:none; font-size:11px; line-height:18px; text-align:center; cursor:pointer; padding:0;}
+  .opp-thumb-more{font-size:11px; color:var(--ink-soft);}
   .spacer{flex:1;}
 
   /* ---------- table ---------- */
@@ -586,6 +592,11 @@
         <div class="full">
           <label>Sản phẩm / Nội dung inquiry</label>
           <input type="text" id="o_productDesc" placeholder="VD: 08183 – 18in Acacia Charcuterie Tray">
+        </div>
+        <div class="full">
+          <label>Hình ảnh đính kèm (bản vẽ / render — sẽ được nén nhỏ)</label>
+          <div class="opp-img-list" id="oppImageList"></div>
+          <input type="file" id="o_imageInput" accept="image/*" multiple>
         </div>
         <div class="full">
           <label>Yêu cầu chính</label>
@@ -1478,7 +1489,7 @@ function renderOppTable(){
     return `
       <tr class="${overdue ? 'overdue-row':''}" data-id="${o.id}">
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
-        <td>${escapeHtml(o.productDesc || '—')}${oppSampleSummary(o)}</td>
+        <td>${escapeHtml(o.productDesc || '—')}${oppSampleSummary(o)}${oppImageThumbHtml(o)}</td>
         <td>${escapeHtml(c ? c.market : '—')}</td>
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
@@ -1502,6 +1513,7 @@ function renderOppTable(){
     </table>`;
   container.querySelectorAll('.opp-edit-btn').forEach(b => b.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
   container.querySelectorAll('.opp-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'opportunity')));
+  container.querySelectorAll('.thumb').forEach(img => img.addEventListener('click', e => { e.stopPropagation(); openImageLightbox(e.currentTarget.dataset.full); }));
 }
 
 function renderOppKanban(){
@@ -1525,6 +1537,7 @@ function renderOppKanban(){
             <div class="meta">${c && c.market ? escapeHtml(c.market) : ''}</div>
             <div class="meta">${escapeHtml(formatDateOnly(o.nextFollowUp) || '')}</div>
             ${oppSampleSummary(o)}
+            ${oppImageThumbHtml(o)}
           </div>`;
         }).join('')}
       </div>
@@ -1532,6 +1545,7 @@ function renderOppKanban(){
   });
   container.innerHTML = `<div class="kanban">${html}</div>`;
   container.querySelectorAll('.kcard').forEach(c => c.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.thumb').forEach(img => img.addEventListener('click', e => { e.stopPropagation(); openImageLightbox(e.currentTarget.dataset.full); }));
 }
 
 function renderOppDashboard(){
@@ -1680,6 +1694,9 @@ function resetOppForm(){
   document.getElementById('oppSampleLinkWrap').style.display = 'none';
   oppActivityLogDraft = [];
   renderOppLogList();
+  pendingOppImages = [];
+  renderOppImageList();
+  document.getElementById('o_imageInput').value = '';
 }
 
 function renderOppLogList(){
@@ -1730,6 +1747,8 @@ function openEditOpportunity(id){
     }
   }
   document.getElementById('o_productDesc').value = o.productDesc || '';
+  pendingOppImages = Array.isArray(o.images) ? [...o.images] : [];
+  renderOppImageList();
   document.getElementById('o_requirements').value = o.requirements || '';
   document.getElementById('o_deadline').value = o.deadline || '';
   document.getElementById('o_priority').value = o.priority || '';
@@ -1793,6 +1812,7 @@ async function saveOpportunity(e){
       ? document.getElementById('o_personInChargeOther').value.trim()
       : document.getElementById('o_personInCharge').value,
     productDesc: document.getElementById('o_productDesc').value.trim(),
+    images: pendingOppImages,
     requirements: document.getElementById('o_requirements').value.trim(),
     deadline: document.getElementById('o_deadline').value,
     priority: document.getElementById('o_priority').value,
@@ -1923,13 +1943,12 @@ function closeModal(){
   document.getElementById('recordOverlay').classList.remove('open');
 }
 
-async function handleImageFile(file){
+async function handleImageFile(file, maxW=300){
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = e => {
       const img = new Image();
       img.onload = () => {
-        const maxW = 300;
         const scale = Math.min(1, maxW / img.width);
         const canvas = document.createElement('canvas');
         canvas.width = img.width * scale;
@@ -1942,6 +1961,29 @@ async function handleImageFile(file){
     };
     reader.readAsDataURL(file);
   });
+}
+
+/* ================= CƠ HỘI: đính kèm nhiều ảnh (bản vẽ / render) ================= */
+let pendingOppImages = [];
+function renderOppImageList(){
+  const wrap = document.getElementById('oppImageList');
+  if(!wrap) return;
+  wrap.innerHTML = pendingOppImages.map((src, i) => `
+    <div class="opp-img-item">
+      <img src="${src}" data-full="${src}">
+      <button type="button" class="opp-img-del" data-idx="${i}" title="Xoá ảnh">✕</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('img').forEach(img => img.addEventListener('click', () => openImageLightbox(img.dataset.full)));
+  wrap.querySelectorAll('.opp-img-del').forEach(btn => btn.addEventListener('click', () => {
+    pendingOppImages.splice(Number(btn.dataset.idx), 1);
+    renderOppImageList();
+  }));
+}
+function oppImageThumbHtml(o){
+  if(!o.images || !o.images.length) return '';
+  const rest = o.images.length - 1;
+  return `<div style="margin-top:4px;"><img class="thumb" src="${o.images[0]}" data-full="${o.images[0]}" title="${o.images.length} ảnh đính kèm">${rest > 0 ? ` <span class="opp-thumb-more">+${rest}</span>` : ''}</div>`;
 }
 
 async function saveRecord(e){
@@ -2240,6 +2282,16 @@ function bindEvents(){
     pendingImage = null;
     document.getElementById('imgPreview').style.display = 'none';
     document.getElementById('f_image').value = '';
+  });
+
+  document.getElementById('o_imageInput').addEventListener('change', async e => {
+    const files = Array.from(e.target.files || []);
+    for(const file of files){
+      const dataUrl = await handleImageFile(file, 600);
+      pendingOppImages.push(dataUrl);
+    }
+    renderOppImageList();
+    e.target.value = '';
   });
 
   document.getElementById('userChip').addEventListener('click', () => {
