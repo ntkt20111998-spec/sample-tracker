@@ -1708,6 +1708,7 @@ function resetOppForm(){
   pendingOppImages = [];
   renderOppImageList();
   document.getElementById('o_imageInput').value = '';
+  document.getElementById('o_requirements').style.height = '';
 }
 
 function renderOppLogList(){
@@ -1777,6 +1778,7 @@ function populateOppFormFields(o){
   pendingOppImages = Array.isArray(o.images) ? [...o.images] : [];
   renderOppImageList();
   document.getElementById('o_requirements').value = o.requirements || '';
+  autoGrowTextarea(document.getElementById('o_requirements'));
   document.getElementById('o_deadline').value = o.deadline || '';
   document.getElementById('o_priority').value = o.priority || '';
   document.getElementById('o_status').value = o.status || '';
@@ -2005,6 +2007,13 @@ function renderOppImageList(){
     pendingOppImages.splice(Number(btn.dataset.idx), 1);
     renderOppImageList();
   }));
+}
+
+/* ================= Textarea tự giãn cao theo nội dung (không cần cuộn) ================= */
+function autoGrowTextarea(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
 }
 
 /* ================= CƠ HỘI: chuyển đổi chế độ Xem / Sửa ================= */
@@ -2243,6 +2252,7 @@ function bindEvents(){
   document.getElementById('oppCancelBtn').addEventListener('click', closeOppModal);
   document.getElementById('oppDeleteBtn').addEventListener('click', () => askDelete(editingOppId, 'opportunity'));
   document.getElementById('oppEditFromViewBtn').addEventListener('click', () => setOppViewMode(false));
+  document.getElementById('o_requirements').addEventListener('input', e => autoGrowTextarea(e.target));
   document.getElementById('oppOverlay').addEventListener('click', e => { if(e.target.id === 'oppOverlay') closeOppModal(); });
   document.getElementById('oppForm').addEventListener('submit', saveOpportunity);
   document.getElementById('o_customerId').addEventListener('change', e => {
