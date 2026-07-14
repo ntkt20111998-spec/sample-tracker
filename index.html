@@ -1738,6 +1738,7 @@ function openEditOpportunity(id){
   populateOppFormFields(o);
   setOppViewMode(false);
   document.getElementById('oppOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('o_requirements'));
 }
 
 function openViewOpportunity(id){
@@ -1748,6 +1749,7 @@ function openViewOpportunity(id){
   populateOppFormFields(o);
   setOppViewMode(true);
   document.getElementById('oppOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('o_requirements'));
 }
 
 function populateOppFormFields(o){
@@ -2037,6 +2039,7 @@ function setOppViewMode(isView){
   document.getElementById('oppCancelBtn').textContent = isView ? 'Đóng' : 'Huỷ';
   document.getElementById('oppModalTitle').textContent = isView ? 'Xem cơ hội' : (editingOppId ? 'Sửa cơ hội' : 'Thêm cơ hội mới');
   renderOppImageList();
+  autoGrowTextarea(document.getElementById('o_requirements'));
 }
 function oppImageThumbHtml(o){
   if(!o.images || !o.images.length) return '';
