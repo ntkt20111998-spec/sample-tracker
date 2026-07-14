@@ -164,13 +164,19 @@
   }
   .kanban-body{padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
   .kcard{
-    border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer; background:#FEFDFB;
+    border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer; background:#FEFDFB; position:relative;
   }
   .kcard:hover{border-color:var(--accent);}
   .kcard.overdue{border-color:var(--rust); background:var(--rust-soft);}
-  .kcard .brand-line{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-bottom:4px;}
+  .kcard .brand-line{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-bottom:4px; padding-right:22px;}
   .kcard .desc{font-size:13px; font-weight:600; margin-bottom:4px;}
   .kcard .meta{font-size:11px; color:var(--ink-soft);}
+  .kcard-view-btn{
+    position:absolute; top:6px; right:6px; width:20px; height:20px; font-size:11px;
+    border:1px solid var(--line); background:var(--surface); border-radius:6px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
+  }
+  .kcard-view-btn:hover{border-color:var(--accent); color:var(--accent);}
 
   /* ---------- modal ---------- */
   .overlay{
@@ -656,6 +662,7 @@
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="oppDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá cơ hội này</button>
         <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="oppEditFromViewBtn" style="display:none;">✎ Chỉnh sửa</button>
         <button type="button" class="btn-ghost" id="oppCancelBtn">Huỷ</button>
         <button type="submit" class="btn-primary">Lưu</button>
       </div>
@@ -1497,6 +1504,7 @@ function renderOppTable(){
         <td>${escapeHtml(o.personInCharge || (c ? c.personInCharge : '') || '—')}</td>
         <td>
           <div class="row-actions">
+            <button class="icon-btn opp-view-btn" data-id="${o.id}" title="Xem">👁</button>
             <button class="icon-btn opp-edit-btn" data-id="${o.id}" title="Sửa">✎</button>
             <button class="icon-btn opp-del-btn" data-id="${o.id}" title="Xoá">🗑</button>
           </div>
@@ -1511,6 +1519,7 @@ function renderOppTable(){
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  container.querySelectorAll('.opp-view-btn').forEach(b => b.addEventListener('click', e => openViewOpportunity(e.currentTarget.dataset.id)));
   container.querySelectorAll('.opp-edit-btn').forEach(b => b.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
   container.querySelectorAll('.opp-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'opportunity')));
   container.querySelectorAll('.thumb').forEach(img => img.addEventListener('click', e => { e.stopPropagation(); openImageLightbox(e.currentTarget.dataset.full); }));
@@ -1532,6 +1541,7 @@ function renderOppKanban(){
         ${items.map(o => {
           const c = customerById(o.customerId);
           return `<div class="kcard ${isOppFollowupOverdue(o)?'overdue':''}" data-id="${o.id}">
+            <button type="button" class="kcard-view-btn" data-id="${o.id}" title="Xem">👁</button>
             <div class="brand-line"><span>${escapeHtml(c ? c.companyName : '—')}</span></div>
             <div class="desc">${escapeHtml(o.productDesc || '')}</div>
             <div class="meta">${c && c.market ? escapeHtml(c.market) : ''}</div>
@@ -1545,6 +1555,7 @@ function renderOppKanban(){
   });
   container.innerHTML = `<div class="kanban">${html}</div>`;
   container.querySelectorAll('.kcard').forEach(c => c.addEventListener('click', e => openEditOpportunity(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.kcard-view-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); openViewOpportunity(e.currentTarget.dataset.id); }));
   container.querySelectorAll('.thumb').forEach(img => img.addEventListener('click', e => { e.stopPropagation(); openImageLightbox(e.currentTarget.dataset.full); }));
 }
 
@@ -1713,6 +1724,7 @@ function renderOppLogList(){
 function openAddOpportunity(){
   editingOppId = null;
   resetOppForm();
+  setOppViewMode(false);
   document.getElementById('oppModalTitle').textContent = 'Thêm cơ hội mới';
   document.getElementById('oppOverlay').classList.add('open');
 }
@@ -1722,7 +1734,22 @@ function openEditOpportunity(id){
   if(!o) return;
   editingOppId = id;
   resetOppForm();
-  document.getElementById('oppModalTitle').textContent = 'Sửa cơ hội';
+  populateOppFormFields(o);
+  setOppViewMode(false);
+  document.getElementById('oppOverlay').classList.add('open');
+}
+
+function openViewOpportunity(id){
+  const o = opportunityById(id);
+  if(!o) return;
+  editingOppId = id;
+  resetOppForm();
+  populateOppFormFields(o);
+  setOppViewMode(true);
+  document.getElementById('oppOverlay').classList.add('open');
+}
+
+function populateOppFormFields(o){
   document.getElementById('o_week').value = o.week || '';
   document.getElementById('o_dateReceived').value = o.dateReceived || '';
   document.getElementById('o_classification').value = o.classification || '';
@@ -1762,11 +1789,9 @@ function openEditOpportunity(id){
   document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(o.status) ? 'block' : 'none';
   oppActivityLogDraft = (o.activityLog || []).slice();
   renderOppLogList();
-  document.getElementById('oppDeleteBtn').style.display = 'inline-block';
 
   document.getElementById('oppSampleLinkWrap').style.display = 'block';
   renderOppLinkedSamples(o);
-  document.getElementById('oppOverlay').classList.add('open');
 }
 
 function closeOppModal(){
@@ -1965,13 +1990,14 @@ async function handleImageFile(file, maxW=300){
 
 /* ================= CƠ HỘI: đính kèm nhiều ảnh (bản vẽ / render) ================= */
 let pendingOppImages = [];
+let oppViewMode = false;
 function renderOppImageList(){
   const wrap = document.getElementById('oppImageList');
   if(!wrap) return;
   wrap.innerHTML = pendingOppImages.map((src, i) => `
     <div class="opp-img-item">
       <img src="${src}" data-full="${src}">
-      <button type="button" class="opp-img-del" data-idx="${i}" title="Xoá ảnh">✕</button>
+      ${oppViewMode ? '' : `<button type="button" class="opp-img-del" data-idx="${i}" title="Xoá ảnh">✕</button>`}
     </div>
   `).join('');
   wrap.querySelectorAll('img').forEach(img => img.addEventListener('click', () => openImageLightbox(img.dataset.full)));
@@ -1979,6 +2005,29 @@ function renderOppImageList(){
     pendingOppImages.splice(Number(btn.dataset.idx), 1);
     renderOppImageList();
   }));
+}
+
+/* ================= CƠ HỘI: chuyển đổi chế độ Xem / Sửa ================= */
+function setOppViewMode(isView){
+  oppViewMode = isView;
+  const form = document.getElementById('oppForm');
+  form.querySelectorAll('input, select, textarea').forEach(el => {
+    if(el.type === 'file'){ el.style.display = isView ? 'none' : ''; return; }
+    el.disabled = isView;
+  });
+  document.getElementById('oppNewCustomerBtn').style.display = isView ? 'none' : '';
+  document.getElementById('oppAddLogBtn').style.display = isView ? 'none' : '';
+  const logAddRow = document.getElementById('o_logInput').closest('.log-add-row');
+  if(logAddRow) logAddRow.style.display = isView ? 'none' : 'flex';
+  document.getElementById('oppLogHint').style.display = isView ? 'none' : 'block';
+  document.getElementById('oppCreateSampleBtn').style.display = isView ? 'none' : '';
+  document.getElementById('oppDeleteBtn').style.display = (!isView && editingOppId) ? 'inline-block' : 'none';
+  document.getElementById('oppEditFromViewBtn').style.display = isView ? 'inline-block' : 'none';
+  const submitBtn = document.querySelector('#oppForm button[type="submit"]');
+  if(submitBtn) submitBtn.style.display = isView ? 'none' : '';
+  document.getElementById('oppCancelBtn').textContent = isView ? 'Đóng' : 'Huỷ';
+  document.getElementById('oppModalTitle').textContent = isView ? 'Xem cơ hội' : (editingOppId ? 'Sửa cơ hội' : 'Thêm cơ hội mới');
+  renderOppImageList();
 }
 function oppImageThumbHtml(o){
   if(!o.images || !o.images.length) return '';
@@ -2193,6 +2242,7 @@ function bindEvents(){
   /* ---- Opportunities module ---- */
   document.getElementById('oppCancelBtn').addEventListener('click', closeOppModal);
   document.getElementById('oppDeleteBtn').addEventListener('click', () => askDelete(editingOppId, 'opportunity'));
+  document.getElementById('oppEditFromViewBtn').addEventListener('click', () => setOppViewMode(false));
   document.getElementById('oppOverlay').addEventListener('click', e => { if(e.target.id === 'oppOverlay') closeOppModal(); });
   document.getElementById('oppForm').addEventListener('submit', saveOpportunity);
   document.getElementById('o_customerId').addEventListener('change', e => {
