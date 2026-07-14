@@ -137,6 +137,13 @@
   .badge.outcome-rejected{background:var(--rust-soft); color:var(--rust);}
   .badge.outcome-revise{background:var(--amber-soft); color:var(--amber);}
   .badge.outcome-none{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.sheet-done{background:var(--sage-soft); color:var(--sage);}
+  .badge.sheet-inprogress{background:var(--amber-soft); color:var(--amber);}
+  .badge.sheet-risk{background:var(--rust-soft); color:var(--rust);}
+  .badge.sheet-unknown{background:#EFEBE3; color:var(--ink-soft);}
+  .sample-status-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
+  .sample-status-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; background:var(--surface);}
+  .sample-status-item .sso-num{font-weight:700; color:var(--ink);}
 
   .row-actions{display:flex; gap:6px;}
   .icon-btn{
@@ -500,7 +507,8 @@
         <div class="full">
           <label>Số đơn mẫu</label>
           <input type="text" id="o_sampleOrderNumbers" placeholder="VD: 51, 85, 89">
-          <div class="field-hint">Ghi số đơn mẫu liên quan (nếu có), phân cách bằng dấu phẩy.</div>
+          <div class="field-hint">Ghi số đơn mẫu liên quan (nếu có), phân cách bằng dấu phẩy. Trạng thái lấy tự động từ sheet Đơn mẫu 2026.</div>
+          <div class="sample-status-list" id="oppSampleStatusList"></div>
         </div>
         <div class="full">
           <label>Ghi chú</label>
@@ -1188,6 +1196,7 @@ function resetOppForm(){
   document.getElementById('o_winLossWrap').style.display = 'none';
   document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(null);
   document.getElementById('oppDeleteBtn').style.display = 'none';
+  document.getElementById('oppSampleStatusList').innerHTML = '';
   oppActivityLogDraft = [];
   renderOppLogList();
   pendingOppImages = [];
@@ -1275,6 +1284,7 @@ function populateOppFormFields(o){
   document.getElementById('o_customerFeedback').value = o.customerFeedback || '';
   document.getElementById('o_notes').value = o.notes || '';
   document.getElementById('o_sampleOrderNumbers').value = o.sampleOrderNumbers || '';
+  renderSampleOrderStatuses(o.sampleOrderNumbers);
   document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
   document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(o.status) ? 'block' : 'none';
   oppActivityLogDraft = (o.activityLog || []).slice();
@@ -1408,6 +1418,107 @@ function oppImageThumbHtml(o){
   return `<div style="margin-top:4px;"><img class="thumb" src="${o.images[0]}" data-full="${o.images[0]}" title="${o.images.length} ảnh đính kèm">${rest > 0 ? ` <span class="opp-thumb-more">+${rest}</span>` : ''}</div>`;
 }
 
+/* ================= TRẠNG THÁI ĐƠN MẪU (đọc từ Google Sheet "Đơn mẫu 2026") ================= */
+const SAMPLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1yDkF0o44AnyH3OP1O-wcRJGrMbDNmOJ6uYsAtbM4hO8/gviz/tq?tqx=out:csv&gid=203116057';
+let sampleSheetCache = null; // {fetchedAt, rows: Map(normKey -> {orderNo, status})}
+
+function parseCsv(text){
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field); field = ''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else if(c === '\r'){ /* skip */ }
+      else { field += c; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function normSampleOrderKey(s){
+  s = String(s || '').trim();
+  if(/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s.toUpperCase();
+}
+
+function classifySheetStatus(status){
+  const s = (status || '').trim();
+  if(!s) return 'unknown';
+  if(s === 'Đã giao') return 'done';
+  if(s === 'Đang triển khai' || s === 'Đang hoàn thiện') return 'inprogress';
+  if(s === 'Chưa giao mộc' || s === 'Chưa triển khai' || s === 'Cancel') return 'risk';
+  return 'unknown';
+}
+
+async function loadSampleSheetMap(force){
+  const now = Date.now();
+  if(!force && sampleSheetCache && (now - sampleSheetCache.fetchedAt) < 5 * 60 * 1000){
+    return sampleSheetCache.rows;
+  }
+  const res = await fetch(SAMPLE_SHEET_CSV_URL, {cache: 'no-store'});
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  const rows = parseCsv(text);
+  const header = rows[0] || [];
+  let numIdx = header.findIndex(h => (h || '').trim() === 'Số Đơn Mẫu');
+  let statusIdx = header.findIndex(h => (h || '').trim() === 'Tình trạng mẫu');
+  if(numIdx < 0) numIdx = 0;
+  if(statusIdx < 0) statusIdx = 14; // cột O
+  const map = new Map();
+  for(let i = 1; i < rows.length; i++){
+    const r = rows[i];
+    if(!r || !r[numIdx]) continue;
+    const orderNo = r[numIdx].trim();
+    if(!orderNo) continue;
+    const status = (r[statusIdx] || '').trim();
+    map.set(normSampleOrderKey(orderNo), {orderNo, status});
+  }
+  sampleSheetCache = {fetchedAt: now, rows: map};
+  return map;
+}
+
+async function renderSampleOrderStatuses(raw){
+  const wrap = document.getElementById('oppSampleStatusList');
+  if(!wrap) return;
+  const tokens = String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+  if(!tokens.length){ wrap.innerHTML = ''; return; }
+  const requestToken = (renderSampleOrderStatuses._token = (renderSampleOrderStatuses._token || 0) + 1);
+  wrap.innerHTML = tokens.map(t => `
+    <div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-unknown">Đang tải...</span></div>
+  `).join('');
+  try{
+    const map = await loadSampleSheetMap(false);
+    if(requestToken !== renderSampleOrderStatuses._token) return; // đã có yêu cầu mới hơn
+    wrap.innerHTML = tokens.map(t => {
+      const hit = map.get(normSampleOrderKey(t));
+      if(!hit){
+        return `<div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-unknown">Không tìm thấy trong sheet</span></div>`;
+      }
+      const cls = classifySheetStatus(hit.status);
+      const label = hit.status ? hit.status : 'Chưa có trạng thái';
+      return `<div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-${cls}">${escapeHtml(label)}</span></div>`;
+    }).join('');
+  }catch(err){
+    console.error('Load sample sheet error', err);
+    if(requestToken !== renderSampleOrderStatuses._token) return;
+    wrap.innerHTML = tokens.map(t => `
+      <div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-unknown">Lỗi tải trạng thái</span></div>
+    `).join('');
+  }
+}
 
 function askDelete(id, type){
   pendingDeleteId = id;
@@ -1580,6 +1691,10 @@ function bindEvents(){
   });
   document.getElementById('confirmCancelBtn').addEventListener('click', () => document.getElementById('confirmOverlay').classList.remove('open'));
   document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+  document.getElementById('o_sampleOrderNumbers').addEventListener('blur', e => {
+    renderSampleOrderStatuses(e.target.value);
+  });
 
   document.getElementById('o_imageInput').addEventListener('change', async e => {
     const files = Array.from(e.target.files || []);
