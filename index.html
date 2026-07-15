@@ -145,6 +145,8 @@
   .sample-status-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
   .sample-status-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; background:var(--surface);}
   .sample-status-item .sso-num{font-weight:700; color:var(--ink);}
+  .sample-status-item .sso-right{display:flex; align-items:center; gap:8px;}
+  .sample-status-item .sso-date{font-size:11px; color:var(--ink-soft); white-space:nowrap;}
 
   .row-actions{display:flex; gap:6px;}
   .icon-btn{
@@ -1482,8 +1484,10 @@ async function loadSampleSheetMap(force){
   const header = rows[0] || [];
   let numIdx = header.findIndex(h => (h || '').trim() === 'Số Đơn Mẫu');
   let statusIdx = header.findIndex(h => (h || '').trim() === 'Tình trạng mẫu');
+  let deliveryIdx = header.findIndex(h => (h || '').trim() === 'Ngày giao thực tế');
   if(numIdx < 0) numIdx = 0;
   if(statusIdx < 0) statusIdx = 14; // cột O
+  if(deliveryIdx < 0) deliveryIdx = 12; // cột M
   const map = new Map();
   for(let i = 1; i < rows.length; i++){
     const r = rows[i];
@@ -1491,7 +1495,8 @@ async function loadSampleSheetMap(force){
     const orderNo = r[numIdx].trim();
     if(!orderNo) continue;
     const status = (r[statusIdx] || '').trim();
-    map.set(normSampleOrderKey(orderNo), {orderNo, status});
+    const deliveryDate = (r[deliveryIdx] || '').trim();
+    map.set(normSampleOrderKey(orderNo), {orderNo, status, deliveryDate});
   }
   sampleSheetCache = {fetchedAt: now, rows: map};
   return map;
@@ -1516,7 +1521,8 @@ async function renderSampleOrderStatuses(raw){
       }
       const cls = classifySheetStatus(hit.status);
       const label = hit.status ? hit.status : 'Chưa có trạng thái';
-      return `<div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-${cls}">${escapeHtml(label)}</span></div>`;
+      const dateHtml = hit.deliveryDate ? `<span class="sso-date">Giao thực tế: ${escapeHtml(hit.deliveryDate)}</span>` : '';
+      return `<div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="sso-right"><span class="badge sheet-${cls}">${escapeHtml(label)}</span>${dateHtml}</span></div>`;
     }).join('');
   }catch(err){
     console.error('Load sample sheet error', err);
