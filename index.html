@@ -380,8 +380,8 @@
           <input type="text" id="c_code" placeholder="VD: KH-001">
         </div>
         <div>
-          <label>Người phụ trách</label>
-          <select id="c_person"><option value="">— Chọn —</option></select>
+          <label>Văn phòng đại diện (nếu có)</label>
+          <input type="text" id="c_person" placeholder="VD: WSI VN, Weca VN...">
         </div>
         <div>
           <label>Thị trường / Khu vực</label>
@@ -745,7 +745,6 @@ function formatDateOnly(s){
 
 /* ================= STATIC DROPDOWNS (danh mục cố định) ================= */
 function initStaticDropdowns(){
-  fillSelect('c_person', TEAM_MEMBERS, '— Chọn —');
   fillSelect('c_market', MARKETS, '— Chọn —');
   fillSelect('c_role', CUST_ROLES, '— Chọn —');
   fillSelect('c_accountSize', ACCOUNT_SIZES, '— Chọn —');
@@ -873,7 +872,7 @@ function renderCustomersTable(){
     <table>
       <thead><tr>
         <th>Khách hàng / Công ty</th><th>Mã KH</th><th>Thị trường</th><th>Vai trò</th>
-        <th>Quy mô TK</th><th>Người phụ trách</th><th></th>
+        <th>Quy mô TK</th><th>Văn phòng đại diện</th><th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -939,7 +938,7 @@ async function saveCustomer(e, opts){
   const formData = {
     companyName: name,
     customerCode: document.getElementById('c_code').value.trim(),
-    personInCharge: document.getElementById('c_person').value,
+    personInCharge: document.getElementById('c_person').value.trim(),
     market: document.getElementById('c_market').value,
     role: document.getElementById('c_role').value,
     accountSize: document.getElementById('c_accountSize').value,
@@ -974,7 +973,7 @@ function buildCustomerInfoBox(c){
     ['Vai trò KH', c.role || '—'],
     ['Quy mô TK', c.accountSize || '—'],
     ['Người liên hệ', c.contactPerson || '—'],
-    ['Người phụ trách', c.personInCharge || '—'],
+    ['Văn phòng đại diện', c.personInCharge || '—'],
   ];
   return '<div class="info-grid">' + items.map(([k,v]) => `<div class="item"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`).join('') + '</div>';
 }
@@ -1002,7 +1001,7 @@ function getFilteredOpportunities(){
     const c = customerById(o.customerId);
     if(status && o.status !== status) return false;
     if(market && (!c || c.market !== market)) return false;
-    const oppPerson = o.personInCharge || (c ? c.personInCharge : '');
+    const oppPerson = o.personInCharge || '';
     if(person && oppPerson !== person) return false;
     if(onlyOverdue && !isOppFollowupOverdue(o)) return false;
     if(q){
@@ -1017,7 +1016,6 @@ function getFilteredOpportunities(){
 function populateOppFilterPerson(){
   const used = new Set(TEAM_MEMBERS);
   opportunities.forEach(o => { if(o.personInCharge) used.add(o.personInCharge); });
-  customers.forEach(c => { if(c.personInCharge) used.add(c.personInCharge); });
   fillSelect('oppFilterPerson', [...used].sort(), 'Tất cả người phụ trách');
 }
 
@@ -1068,7 +1066,7 @@ function renderOppTable(){
         <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
         <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
-        <td>${escapeHtml(o.personInCharge || (c ? c.personInCharge : '') || '—')}</td>
+        <td>${escapeHtml(o.personInCharge || '—')}</td>
         <td>
           <div class="row-actions">
             <button class="icon-btn opp-view-btn" data-id="${o.id}" title="Xem">👁</button>
@@ -1256,7 +1254,7 @@ function populateOppFormFields(o){
   document.getElementById('o_customerId').value = o.customerId || '';
   setSelectedProductCategories(o.productCategories || (o.productCategory ? [o.productCategory] : []));
   {
-    const resolvedPerson = o.personInCharge || (customerById(o.customerId) ? (customerById(o.customerId).personInCharge || '') : '');
+    const resolvedPerson = o.personInCharge || '';
     const personSel = document.getElementById('o_personInCharge');
     const otherInput = document.getElementById('o_personInChargeOther');
     if(resolvedPerson && TEAM_MEMBERS.includes(resolvedPerson)){
@@ -1570,7 +1568,7 @@ function exportOppCsv(){
     const c = customerById(o.customerId) || {};
     const cats = (o.productCategories || (o.productCategory ? [o.productCategory] : [])).join('; ');
     return [
-      c.companyName, c.customerCode, c.market, c.role, c.accountSize, c.contactPerson, (o.personInCharge || c.personInCharge),
+      c.companyName, c.customerCode, c.market, c.role, c.accountSize, c.contactPerson, o.personInCharge,
       o.classification, cats, o.productDesc, o.requirements,
       formatDateOnly(o.deadline), o.priority, o.status, o.nextAction, formatDateOnly(o.nextFollowUp), o.customerFeedback, o.winLossReason, o.sampleOrderNumbers, o.notes
     ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
