@@ -618,8 +618,12 @@ const ACCOUNT_SIZE_DEFS = {
   P: 'Prospect, chưa từng đặt hàng (khớp với Phân loại = LEAD)'
 };
 const PRODUCT_CATEGORIES =['Khay','Tô','Hộp / thùng / office','Khung gương / Khung hình','Bàn / Ghế / Tủ','Kệ','Tấm lót','Thớt','Muỗng nĩa','Game','Trang trí','Khác'];
-const WIN_LOSS_REASONS = ['Giá cạnh tranh hơn','Thời gian giao hàng không đáp ứng','Chất lượng mẫu không đạt','MOQ không phù hợp','Đối thủ thắng','Khách dừng dự án','Khác'];
+const WIN_REASONS = ['Giá cạnh tranh','Chất lượng mẫu tốt','Thời gian giao hàng đáp ứng tốt','Sản phẩm đáp ứng đúng yêu cầu','Dịch vụ / hỗ trợ tốt trong quá trình làm việc','Quan hệ hợp tác lâu năm','Khác'];
+const LOSS_REASONS = ['Giá cạnh tranh hơn','Thời gian giao hàng không đáp ứng','Chất lượng mẫu không đạt','MOQ không phù hợp','Đối thủ thắng','Khách dừng dự án','Khác'];
 const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
+function winLossReasonList(status){ return status === 'Thắng đơn' ? WIN_REASONS : LOSS_REASONS; }
+function updateWinLossReasonOptions(status){ fillSelect('o_winLossReason', winLossReasonList(status), '— Chọn —'); }
+function isOppWinLossFieldStatus(status){ return OPP_CLOSED_STATUSES.includes(status) || status === 'Tạm dừng'; }
 
 /* ================= LOCAL DISPLAY NAME (per-browser, real localStorage) ================= */
 function getSavedName(){
@@ -771,7 +775,7 @@ function initStaticDropdowns(){
   populateProductCategoriesCheckboxes();
   fillSelect('o_priority', OPP_PRIORITIES, '— Chọn —');
   fillSelect('o_status', OPP_STATUSES, '— Chọn —');
-  fillSelect('o_winLossReason', WIN_LOSS_REASONS, '— Chọn —');
+  updateWinLossReasonOptions('');
 
   fillSelect('oppFilterStatus', OPP_STATUSES, 'Tất cả trạng thái');
   fillSelect('oppFilterMarket', MARKETS, 'Tất cả thị trường');
@@ -1225,7 +1229,8 @@ function renderOppDashboard(){
     const winRate = (won+lost) ? Math.round(won/(won+lost)*100) : null;
     return {k: cat, count, winRate};
   });
-  const byReason = WIN_LOSS_REASONS.map(r => ({k:r, count: opportunities.filter(o=>o.winLossReason===r).length}));
+  const allReasonLabels = [...new Set([...WIN_REASONS, ...LOSS_REASONS])];
+  const byReason = allReasonLabels.map(r => ({k:r, count: opportunities.filter(o=>o.winLossReason===r).length}));
 
   container.innerHTML = `
     <div class="dash-grid">
@@ -1250,6 +1255,7 @@ function resetOppForm(){
   ['o_week','o_productDesc','o_requirements','o_nextAction','o_customerFeedback','o_notes','o_logInput','o_sampleOrderNumbers'].forEach(id => document.getElementById(id).value = '');
   ['o_dateReceived','o_deadline','o_nextFollowUp'].forEach(id => document.getElementById(id).value = '');
   ['o_classification','o_customerId','o_priority','o_status','o_winLossReason','o_personInCharge'].forEach(id => document.getElementById(id).value = '');
+  updateWinLossReasonOptions('');
   setSelectedProductCategories([]);
   document.getElementById('o_personInChargeOther').style.display = 'none';
   document.getElementById('o_personInChargeOther').value = '';
@@ -1339,6 +1345,7 @@ function populateOppFormFields(o){
   document.getElementById('o_priority').value = o.priority || '';
   document.getElementById('o_status').value = o.status || '';
   document.getElementById('o_winLossReason').value = o.winLossReason || '';
+  updateWinLossReasonOptions(o.status || '');
   document.getElementById('o_nextAction').value = o.nextAction || '';
   document.getElementById('o_nextFollowUp').value = o.nextFollowUp || '';
   document.getElementById('o_customerFeedback').value = o.customerFeedback || '';
@@ -1346,7 +1353,7 @@ function populateOppFormFields(o){
   document.getElementById('o_sampleOrderNumbers').value = o.sampleOrderNumbers || '';
   renderSampleOrderStatuses(o.sampleOrderNumbers);
   document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
-  document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(o.status) ? 'block' : 'none';
+  document.getElementById('o_winLossWrap').style.display = isOppWinLossFieldStatus(o.status) ? 'block' : 'none';
   oppActivityLogDraft = (o.activityLog || []).slice();
   renderOppLogList();
 }
@@ -1379,7 +1386,7 @@ async function saveOpportunity(e){
     deadline: document.getElementById('o_deadline').value,
     priority: document.getElementById('o_priority').value,
     status,
-    winLossReason: OPP_CLOSED_STATUSES.includes(status) ? document.getElementById('o_winLossReason').value : '',
+    winLossReason: isOppWinLossFieldStatus(status) ? document.getElementById('o_winLossReason').value : '',
     nextAction: document.getElementById('o_nextAction').value.trim(),
     nextFollowUp: document.getElementById('o_nextFollowUp').value,
     customerFeedback: document.getElementById('o_customerFeedback').value.trim(),
@@ -1785,7 +1792,8 @@ function bindEvents(){
     document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(e.target.value));
   });
   document.getElementById('o_status').addEventListener('change', e => {
-    document.getElementById('o_winLossWrap').style.display = OPP_CLOSED_STATUSES.includes(e.target.value) ? 'block' : 'none';
+    document.getElementById('o_winLossWrap').style.display = isOppWinLossFieldStatus(e.target.value) ? 'block' : 'none';
+    updateWinLossReasonOptions(e.target.value);
   });
   document.getElementById('o_personInCharge').addEventListener('change', e => {
     const otherInput = document.getElementById('o_personInChargeOther');
