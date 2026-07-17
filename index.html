@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
   :root{
     --bg:#FAF7F1;
@@ -345,7 +346,7 @@
     <select id="oppFilterPerson"><option value="">Tất cả người phụ trách</option></select>
     <label class="checkbox-pill"><input type="checkbox" id="oppFilterOverdue"> Chỉ hiện quá hạn follow-up</label>
     <div class="spacer"></div>
-    <button class="btn-ghost" id="oppExportBtn">Xuất CSV</button>
+    <button class="btn-ghost" id="oppExportBtn">Xuất Excel</button>
     <div class="view-toggle">
       <button id="oppViewTableBtn" class="active">Bảng</button>
       <button id="oppViewKanbanBtn">Kanban</button>
@@ -1621,25 +1622,104 @@ async function confirmDelete(){
 }
 
 /* ================= EXPORT ================= */
-function exportOppCsv(){
+// Xuất Excel theo đúng định dạng "BẢNG THEO DÕI CƠ HỘI BÁN HÀNG" (template chuẩn của team):
+// STT, Tuần, Ngày nhận, Phân loại, Mã KH, Khách hàng/Công ty, Thị trường/Khu vực, Vai trò khách hàng,
+// Quy mô tài khoản, Ngành hàng sản phẩm, Người liên hệ (Email), Người phụ trách, Sản phẩm/Nội dung inquiry,
+// Yêu cầu chính, Deadline, Ưu tiên, Trạng thái, Đã thực hiện (log theo ngày), Hành động tiếp theo,
+// Ngày follow-up kế tiếp, Phản hồi khách, Ngày cập nhật, Lý do thắng/thua, Ghi chú.
+const OPP_EXPORT_COLUMNS = [
+  {header:'STT', width:5},
+  {header:'Tuần', width:17},
+  {header:'Ngày nhận', width:11},
+  {header:'Phân loại', width:10},
+  {header:'Mã KH', width:13.7},
+  {header:'Khách hàng / Công ty', width:24},
+  {header:'Thị trường / Khu vực', width:16},
+  {header:'Vai trò khách hàng', width:15},
+  {header:'Quy mô tài khoản', width:13},
+  {header:'Ngành hàng sản phẩm', width:16},
+  {header:'Người liên hệ (Email)', width:26},
+  {header:'Người phụ trách', width:13},
+  {header:'Sản phẩm / Nội dung inquiry', width:30},
+  {header:'Yêu cầu chính', width:34},
+  {header:'Deadline', width:12},
+  {header:'Ưu tiên', width:10},
+  {header:'Trạng thái', width:16},
+  {header:'Đã thực hiện (log theo ngày)', width:34},
+  {header:'Hành động tiếp theo', width:22},
+  {header:'Ngày follow-up kế tiếp', width:14},
+  {header:'Phản hồi khách', width:26},
+  {header:'Ngày cập nhật', width:13},
+  {header:'Lý do thắng/thua', width:20},
+  {header:'Ghi chú', width:22},
+];
+
+function oppActivityLogText(o){
+  const log = o.activityLog || [];
+  if(!log.length) return '';
+  return log.map(item => `${item.date || ''}${item.user ? ' ['+item.user+']' : ''}: ${item.text || ''}`).join('\n');
+}
+
+async function exportOppXlsx(){
+  if(typeof ExcelJS === 'undefined'){
+    showToast('Không tải được thư viện xuất Excel — kiểm tra kết nối mạng.');
+    return;
+  }
   const list = getFilteredOpportunities();
-  const headers = ['Khách hàng','Mã KH','Thị trường','Vai trò KH','Quy mô TK','Người liên hệ','Người phụ trách',
-    'Phân loại','Ngành hàng','Sản phẩm/Inquiry','Yêu cầu chính','Deadline','Ưu tiên','Trạng thái',
-    'Hành động tiếp theo','Follow-up kế tiếp','Phản hồi khách','Lý do thắng/thua','Số đơn mẫu','Ghi chú'];
-  const rows = list.map(o => {
-    const c = customerById(o.customerId) || {};
-    const cats = (o.productCategories || (o.productCategory ? [o.productCategory] : [])).join('; ');
-    return [
-      c.companyName, c.customerCode, c.market, c.role, c.accountSize, c.contactPerson, o.personInCharge,
-      o.classification, cats, o.productDesc, o.requirements,
-      formatDateOnly(o.deadline), o.priority, o.status, o.nextAction, formatDateOnly(o.nextFollowUp), o.customerFeedback, o.winLossReason, o.sampleOrderNumbers, o.notes
-    ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Theo doi Co hoi', {views:[{state:'frozen', xSplit:6, ySplit:3}]});
+  ws.columns = OPP_EXPORT_COLUMNS.map(c => ({width: c.width}));
+
+  const lastColLetter = String.fromCharCode(64 + OPP_EXPORT_COLUMNS.length); // 24 cols -> 'X'
+  ws.mergeCells(`A1:${lastColLetter}1`);
+  const titleCell = ws.getCell('A1');
+  titleCell.value = 'BẢNG THEO DÕI CƠ HỘI BÁN HÀNG — CHÀO HÀNG & PHÁT TRIỂN SẢN PHẨM MỚI';
+  titleCell.font = {name:'Calibri', bold:true, size:16, color:{argb:'FFFFFFFF'}};
+  titleCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF2B2420'}};
+  titleCell.alignment = {horizontal:'center', vertical:'middle'};
+  ws.getRow(1).height = 26;
+
+  const headerRow = ws.getRow(3);
+  OPP_EXPORT_COLUMNS.forEach((c, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = c.header;
+    cell.font = {name:'Calibri', bold:true, size:11};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF1E1D3'}};
+    cell.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+    cell.border = {bottom:{style:'thin', color:{argb:'FFA85C32'}}};
   });
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+  headerRow.height = 32;
+
+  list.forEach((o, idx) => {
+    const c = customerById(o.customerId) || {};
+    const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : (o.productCategory || '');
+    const logText = oppActivityLogText(o);
+    const rowIdx = 4 + idx;
+    const row = ws.getRow(rowIdx);
+    const values = [
+      idx + 1, o.week || '', formatDateOnly(o.dateReceived) || '', o.classification || '', c.customerCode || '',
+      c.companyName || '', c.market || '', c.role || '', c.accountSize || '', cats,
+      c.contactPerson || '', o.personInCharge || '', o.productDesc || '', o.requirements || '',
+      formatDateOnly(o.deadline) || '', o.priority || '', o.status || '', logText, o.nextAction || '',
+      formatDateOnly(o.nextFollowUp) || '', o.customerFeedback || '', formatDateOnly(o.updatedAt) || '',
+      o.winLossReason || '', o.notes || '',
+    ];
+    row.values = values;
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.font = {name:'Calibri', size:11};
+      cell.alignment = {vertical:'top', wrapText:true};
+      cell.border = {bottom:{style:'hair', color:{argb:'FFE6DCCB'}}};
+    });
+    row.getCell(1).alignment = {vertical:'top', horizontal:'center'};
+    const lineCount = Math.max(1, (logText.match(/\n/g) || []).length + 1, (o.requirements||'').length > 60 ? 3 : 1);
+    row.height = Math.min(120, Math.max(20, lineCount * 14));
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'co-hoi-ban-hang-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.href = url; a.download = 'Theo-doi-Co-hoi-' + new Date().toISOString().slice(0,10) + '.xlsx';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1753,7 +1833,7 @@ function bindEvents(){
   document.getElementById('oppViewTableBtn').addEventListener('click', () => switchOppView('table'));
   document.getElementById('oppViewKanbanBtn').addEventListener('click', () => switchOppView('kanban'));
   document.getElementById('oppViewDashboardBtn').addEventListener('click', () => switchOppView('dashboard'));
-  document.getElementById('oppExportBtn').addEventListener('click', exportOppCsv);
+  document.getElementById('oppExportBtn').addEventListener('click', exportOppXlsx);
 
   document.getElementById('imageOverlay').addEventListener('click', () => {
     document.getElementById('imageOverlay').classList.remove('open');
