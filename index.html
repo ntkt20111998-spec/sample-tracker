@@ -380,7 +380,8 @@
         </div>
         <div>
           <label>Mã KH</label>
-          <input type="text" id="c_code" placeholder="VD: KH-001">
+          <input type="text" id="c_code" placeholder="VD: ABC">
+          <div class="field-hint" id="c_codeHint">Mã KH: đúng 3 chữ cái in hoa (VD: ABC), không số/khoảng trắng.</div>
         </div>
         <div>
           <label>Văn phòng đại diện (nếu có)</label>
@@ -883,11 +884,47 @@ function renderCustomersTable(){
   container.querySelectorAll('.cust-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'customer')));
 }
 
+const CUSTOMER_CODE_DEFAULT_HINT = 'Mã KH: đúng 3 chữ cái in hoa (VD: ABC), không số/khoảng trắng.';
+const CUSTOMER_CODE_RE = /^[A-Z]{3}$/;
+
 function resetCustomerForm(){
   ['c_name','c_code','c_contact','c_note'].forEach(id => document.getElementById(id).value = '');
   ['c_person','c_market','c_role','c_accountSize'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('c_nameHint').textContent = '';
+  const codeHint = document.getElementById('c_codeHint');
+  codeHint.textContent = CUSTOMER_CODE_DEFAULT_HINT;
+  codeHint.style.color = 'var(--ink-soft)';
   document.getElementById('custDeleteBtn').style.display = 'none';
+}
+
+// Kiểm tra mã KH: đúng 3 chữ cái in hoa, không trùng với khách hàng khác.
+// Trả về {valid, code}. Mã rỗng được xem là hợp lệ (không bắt buộc).
+function validateCustomerCode(){
+  const el = document.getElementById('c_code');
+  const hintEl = document.getElementById('c_codeHint');
+  const raw = el.value.toUpperCase();
+  if(el.value !== raw) el.value = raw; // tự động chuyển in hoa khi gõ
+  const code = raw.trim();
+  if(!code){
+    hintEl.textContent = CUSTOMER_CODE_DEFAULT_HINT;
+    hintEl.style.color = 'var(--ink-soft)';
+    return {valid: true, code: ''};
+  }
+  if(!CUSTOMER_CODE_RE.test(code)){
+    hintEl.textContent = 'Mã KH không hợp lệ — phải là đúng 3 chữ cái in hoa (A-Z), không chứa số hoặc khoảng trắng.';
+    hintEl.style.color = 'var(--rust)';
+    return {valid: false, code};
+  }
+  const dup = customers.find(c => (c.customerCode || '').trim().toUpperCase() === code && c.id !== editingCustomerId);
+  if(dup){
+    const info = [dup.companyName, dup.market, dup.role].filter(Boolean).join(' · ');
+    hintEl.textContent = `Mã "${code}" đã dùng cho khách hàng: ${info || dup.companyName} — vui lòng đổi mã khác.`;
+    hintEl.style.color = 'var(--rust)';
+    return {valid: false, code};
+  }
+  hintEl.textContent = CUSTOMER_CODE_DEFAULT_HINT;
+  hintEl.style.color = 'var(--ink-soft)';
+  return {valid: true, code};
 }
 
 function openAddCustomer(){
@@ -937,10 +974,15 @@ async function saveCustomer(e, opts){
     hintEl.style.color = 'var(--rust)';
     return null;
   }
+  const codeCheck = validateCustomerCode();
+  if(!codeCheck.valid){
+    document.getElementById('c_code').focus();
+    return null;
+  }
   const now = new Date().toISOString();
   const formData = {
     companyName: name,
-    customerCode: document.getElementById('c_code').value.trim(),
+    customerCode: codeCheck.code,
     personInCharge: document.getElementById('c_person').value.trim(),
     market: document.getElementById('c_market').value,
     role: document.getElementById('c_role').value,
@@ -1635,6 +1677,7 @@ function bindEvents(){
       document.getElementById('oppOverlay').classList.add('open');
     }
   });
+  document.getElementById('c_code').addEventListener('input', validateCustomerCode);
   ['custSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderCustomersTable));
   ['custFilterMarket','custFilterAccountSize'].forEach(id => document.getElementById(id).addEventListener('change', renderCustomersTable));
 
