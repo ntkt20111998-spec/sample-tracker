@@ -142,6 +142,10 @@
   .badge.sheet-inprogress{background:var(--amber-soft); color:var(--amber);}
   .badge.sheet-risk{background:var(--rust-soft); color:var(--rust);}
   .badge.sheet-unknown{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.priority-cao{background:var(--rust-soft); color:var(--rust);}
+  .badge.priority-trungbinh{background:var(--amber-soft); color:var(--amber);}
+  .badge.priority-thap{background:var(--sage-soft); color:var(--sage);}
+  .badge.priority-none{background:#EFEBE3; color:var(--ink-soft);}
   .sample-status-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
   .sample-status-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; background:var(--surface);}
   .sample-status-item .sso-num{font-weight:700; color:var(--ink);}
@@ -594,6 +598,13 @@ const TEAM_MEMBERS = ['Tiên','Thanh','Tuyên','Dũng','Dung','Mi','Duyên','Nga
 const OPP_CLASSES = ['LEAD','REGULAR'];
 const OPP_STATUSES = ['Nhận thông tin','Đang xử lý YCBG / YCTK','Đã báo giá','Đang đàm phán giá','Đã gửi render','Triển khai mẫu','Review mẫu','Đóng gói & gửi mẫu','Chờ khách phản hồi','Thắng đơn','Không thành công','Tạm dừng'];
 const OPP_PRIORITIES = ['Cao','Trung bình','Thấp'];
+
+function priorityBadgeClass(p){
+  if(p === 'Cao') return 'priority-cao';
+  if(p === 'Trung bình') return 'priority-trungbinh';
+  if(p === 'Thấp') return 'priority-thap';
+  return 'priority-none';
+}
 const MARKETS = ['North America Market','South America Market','EU Market','Australia Market','Asia Market','Other'];
 const CUST_ROLES = ['Retailer','Distributor','Sourcing Agent','Khác'];
 const ACCOUNT_SIZES = ['A – Key / Strategic','B – Core / Growing','C – Maintain','D – Low Priority / Observe'];
@@ -1108,7 +1119,7 @@ function renderOppTable(){
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
         <td>${escapeHtml(o.productDesc || '—')}</td>
         <td>${escapeHtml(cats)}</td>
-        <td><span class="badge production">${escapeHtml(o.priority || '—')}</span></td>
+        <td><span class="badge ${priorityBadgeClass(o.priority)}">${escapeHtml(o.priority || '—')}</span></td>
         <td><span class="badge special">${escapeHtml(o.status || '—')}</span></td>
         <td>${escapeHtml(formatDateOnly(o.nextFollowUp) || '—')}</td>
         <td>${escapeHtml(o.personInCharge || '—')}</td>
