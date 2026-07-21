@@ -410,6 +410,14 @@
           <label>Người liên hệ (Email)</label>
           <input type="text" id="c_contact" placeholder="VD: Ana Delgado - adelgado@neatfreak.com">
         </div>
+        <div>
+          <label>Website</label>
+          <input type="text" id="c_website" placeholder="VD: www.neatfreak.com">
+        </div>
+        <div>
+          <label>Tiêu chuẩn chất lượng</label>
+          <input type="text" id="c_qualityStandard" placeholder="VD: ISO 1.2, Grade A...">
+        </div>
         <div class="full">
           <label>Ghi chú</label>
           <textarea id="c_note"></textarea>
@@ -418,6 +426,7 @@
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="custDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá khách hàng này</button>
         <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="custEditFromViewBtn" style="display:none;">✎ Chỉnh sửa</button>
         <button type="button" class="btn-ghost" id="custCancelBtn">Huỷ</button>
         <button type="submit" class="btn-primary">Lưu</button>
       </div>
@@ -674,6 +683,7 @@ let currentUser = '';
 let currentModule = 'opportunities';
 let oppView = 'table';
 let editingCustomerId = null;
+let customerViewMode = false;
 let editingOppId = null;
 let pendingDeleteId = null;
 let pendingDeleteType = 'opportunity';
@@ -885,6 +895,7 @@ function renderCustomersTable(){
       <td>${escapeHtml(c.personInCharge || '—')}</td>
       <td>
         <div class="row-actions">
+          <button class="icon-btn cust-view-btn" data-id="${c.id}" title="Xem">👁</button>
           <button class="icon-btn cust-edit-btn" data-id="${c.id}" title="Sửa">✎</button>
           <button class="icon-btn cust-del-btn" data-id="${c.id}" title="Xoá">🗑</button>
         </div>
@@ -898,6 +909,7 @@ function renderCustomersTable(){
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  container.querySelectorAll('.cust-view-btn').forEach(b => b.addEventListener('click', e => openViewCustomer(e.currentTarget.dataset.id)));
   container.querySelectorAll('.cust-edit-btn').forEach(b => b.addEventListener('click', e => openEditCustomer(e.currentTarget.dataset.id)));
   container.querySelectorAll('.cust-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'customer')));
 }
@@ -906,8 +918,9 @@ const CUSTOMER_CODE_DEFAULT_HINT = 'Mã KH: đúng 3 chữ cái in hoa (VD: ABC)
 const CUSTOMER_CODE_RE = /^[A-Z]{3}$/;
 
 function resetCustomerForm(){
-  ['c_name','c_code','c_contact','c_note'].forEach(id => document.getElementById(id).value = '');
+  ['c_name','c_code','c_contact','c_note','c_website','c_qualityStandard'].forEach(id => document.getElementById(id).value = '');
   ['c_person','c_market','c_role','c_accountSize'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('c_note').style.height = '';
   document.getElementById('c_nameHint').textContent = '';
   const codeHint = document.getElementById('c_codeHint');
   codeHint.textContent = CUSTOMER_CODE_DEFAULT_HINT;
@@ -945,9 +958,24 @@ function validateCustomerCode(){
   return {valid: true, code};
 }
 
+function populateCustomerFormFields(c){
+  document.getElementById('c_name').value = c.companyName || '';
+  document.getElementById('c_code').value = c.customerCode || '';
+  document.getElementById('c_person').value = c.personInCharge || '';
+  document.getElementById('c_market').value = c.market || '';
+  document.getElementById('c_role').value = c.role || '';
+  document.getElementById('c_accountSize').value = c.accountSize || '';
+  document.getElementById('c_contact').value = c.contactPerson || '';
+  document.getElementById('c_website').value = c.website || '';
+  document.getElementById('c_qualityStandard').value = c.qualityStandard || '';
+  document.getElementById('c_note').value = c.note || '';
+  autoGrowTextarea(document.getElementById('c_note'));
+}
+
 function openAddCustomer(){
   editingCustomerId = null;
   resetCustomerForm();
+  setCustomerViewMode(false);
   document.getElementById('custModalTitle').textContent = 'Thêm khách hàng mới';
   document.getElementById('customerOverlay').classList.add('open');
 }
@@ -957,17 +985,33 @@ function openEditCustomer(id){
   if(!c) return;
   editingCustomerId = id;
   resetCustomerForm();
-  document.getElementById('custModalTitle').textContent = 'Sửa khách hàng';
-  document.getElementById('c_name').value = c.companyName || '';
-  document.getElementById('c_code').value = c.customerCode || '';
-  document.getElementById('c_person').value = c.personInCharge || '';
-  document.getElementById('c_market').value = c.market || '';
-  document.getElementById('c_role').value = c.role || '';
-  document.getElementById('c_accountSize').value = c.accountSize || '';
-  document.getElementById('c_contact').value = c.contactPerson || '';
-  document.getElementById('c_note').value = c.note || '';
-  document.getElementById('custDeleteBtn').style.display = 'inline-block';
+  populateCustomerFormFields(c);
+  setCustomerViewMode(false);
   document.getElementById('customerOverlay').classList.add('open');
+}
+
+function openViewCustomer(id){
+  const c = customerById(id);
+  if(!c) return;
+  editingCustomerId = id;
+  resetCustomerForm();
+  populateCustomerFormFields(c);
+  setCustomerViewMode(true);
+  document.getElementById('customerOverlay').classList.add('open');
+}
+
+/* ================= KHÁCH HÀNG: chuyển đổi chế độ Xem / Sửa ================= */
+function setCustomerViewMode(isView){
+  customerViewMode = isView;
+  const form = document.getElementById('customerForm');
+  form.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = isView; });
+  document.getElementById('custDeleteBtn').style.display = (!isView && editingCustomerId) ? 'inline-block' : 'none';
+  document.getElementById('custEditFromViewBtn').style.display = isView ? 'inline-block' : 'none';
+  const submitBtn = document.querySelector('#customerForm button[type="submit"]');
+  if(submitBtn) submitBtn.style.display = isView ? 'none' : '';
+  document.getElementById('custCancelBtn').textContent = isView ? 'Đóng' : 'Huỷ';
+  document.getElementById('custModalTitle').textContent = isView ? 'Xem khách hàng' : (editingCustomerId ? 'Sửa khách hàng' : 'Thêm khách hàng mới');
+  autoGrowTextarea(document.getElementById('c_note'));
 }
 
 function closeCustomerModal(){
@@ -1006,6 +1050,8 @@ async function saveCustomer(e, opts){
     role: document.getElementById('c_role').value,
     accountSize: document.getElementById('c_accountSize').value,
     contactPerson: document.getElementById('c_contact').value.trim(),
+    website: document.getElementById('c_website').value.trim(),
+    qualityStandard: document.getElementById('c_qualityStandard').value.trim(),
     note: document.getElementById('c_note').value.trim(),
   };
   try{
@@ -1037,6 +1083,7 @@ function buildCustomerInfoBox(c){
     ['Quy mô TK', c.accountSize || '—'],
     ['Người liên hệ', c.contactPerson || '—'],
     ['Văn phòng đại diện', c.personInCharge || '—'],
+    ['Tiêu chuẩn chất lượng', c.qualityStandard || '—'],
   ];
   return '<div class="info-grid">' + items.map(([k,v]) => `<div class="item"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`).join('') + '</div>';
 }
@@ -1778,6 +1825,8 @@ function bindEvents(){
     }
   });
   document.getElementById('c_code').addEventListener('input', validateCustomerCode);
+  document.getElementById('c_note').addEventListener('input', e => autoGrowTextarea(e.target));
+  document.getElementById('custEditFromViewBtn').addEventListener('click', () => setCustomerViewMode(false));
   ['custSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderCustomersTable));
   ['custFilterMarket','custFilterAccountSize'].forEach(id => document.getElementById(id).addEventListener('change', renderCustomersTable));
 
