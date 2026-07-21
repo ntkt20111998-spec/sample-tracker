@@ -149,6 +149,11 @@
   .badge.priority-trungbinh{background:var(--blue-soft); color:var(--blue);}
   .badge.priority-thap{background:var(--sage-soft); color:var(--sage);}
   .badge.priority-none{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.acctsize-a{background:var(--rust-soft); color:var(--rust);}
+  .badge.acctsize-b{background:var(--sage-soft); color:var(--sage);}
+  .badge.acctsize-c{background:var(--amber-soft); color:var(--amber);}
+  .badge.acctsize-d{background:var(--slate-soft); color:var(--slate);}
+  .badge.acctsize-none{background:#EFEBE3; color:var(--ink-soft);}
   .sample-status-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
   .sample-status-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; background:var(--surface);}
   .sample-status-item .sso-num{font-weight:700; color:var(--ink);}
@@ -620,6 +625,15 @@ function priorityBadgeClass(p){
 const MARKETS = ['North America Market','South America Market','EU Market','Australia Market','Asia Market','Other'];
 const CUST_ROLES = ['Retailer','Distributor','Sourcing Agent','Khác'];
 const ACCOUNT_SIZES = ['A – Key / Strategic','B – Core / Growing','C – Maintain','D – Low Priority / Observe'];
+function accountSizeBadgeClass(size){
+  if(!size) return 'acctsize-none';
+  const letter = size.trim().charAt(0).toUpperCase();
+  if(letter === 'A') return 'acctsize-a';
+  if(letter === 'B') return 'acctsize-b';
+  if(letter === 'C') return 'acctsize-c';
+  if(letter === 'D') return 'acctsize-d';
+  return 'acctsize-none';
+}
 const ACCOUNT_SIZE_DEFS = {
   A: 'Doanh thu ≥$100K/năm (12 tháng gần nhất) hoặc khách chiến lược',
   B: 'Doanh thu $30K–$100K/năm',
@@ -891,7 +905,7 @@ function renderCustomersTable(){
       <td>${escapeHtml(c.customerCode || '—')}</td>
       <td>${escapeHtml(c.market || '—')}</td>
       <td>${escapeHtml(c.role || '—')}</td>
-      <td><span class="badge production">${escapeHtml(c.accountSize || '—')}</span></td>
+      <td><span class="badge ${accountSizeBadgeClass(c.accountSize)}">${escapeHtml(c.accountSize || '—')}</span></td>
       <td>${escapeHtml(c.personInCharge || '—')}</td>
       <td>
         <div class="row-actions">
