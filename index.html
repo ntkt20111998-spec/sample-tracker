@@ -988,6 +988,7 @@ function openEditCustomer(id){
   populateCustomerFormFields(c);
   setCustomerViewMode(false);
   document.getElementById('customerOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('c_note'));
 }
 
 function openViewCustomer(id){
@@ -998,6 +999,7 @@ function openViewCustomer(id){
   populateCustomerFormFields(c);
   setCustomerViewMode(true);
   document.getElementById('customerOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('c_note'));
 }
 
 /* ================= KHÁCH HÀNG: chuyển đổi chế độ Xem / Sửa ================= */
