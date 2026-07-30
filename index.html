@@ -1830,7 +1830,7 @@ function bindEvents(){
   /* ---- Customers module ---- */
   document.getElementById('custCancelBtn').addEventListener('click', closeCustomerModalMaybeReturn);
   document.getElementById('custDeleteBtn').addEventListener('click', () => askDelete(editingCustomerId, 'customer'));
-  document.getElementById('customerOverlay').addEventListener('click', e => { if(e.target.id === 'customerOverlay') closeCustomerModalMaybeReturn(); });
+  document.getElementById('customerOverlay').addEventListener('dblclick', e => { if(e.target.id === 'customerOverlay') closeCustomerModalMaybeReturn(); });
   document.getElementById('customerForm').addEventListener('submit', async e => {
     const wasReturning = pendingReturnToOpportunity;
     const id = await saveCustomer(e, {keepOpen: false});
@@ -1852,7 +1852,7 @@ function bindEvents(){
   document.getElementById('oppDeleteBtn').addEventListener('click', () => askDelete(editingOppId, 'opportunity'));
   document.getElementById('oppEditFromViewBtn').addEventListener('click', () => setOppViewMode(false));
   document.getElementById('o_requirements').addEventListener('input', e => autoGrowTextarea(e.target));
-  document.getElementById('oppOverlay').addEventListener('click', e => { if(e.target.id === 'oppOverlay') closeOppModal(); });
+  document.getElementById('oppOverlay').addEventListener('dblclick', e => { if(e.target.id === 'oppOverlay') closeOppModal(); });
   document.getElementById('oppForm').addEventListener('submit', saveOpportunity);
   document.getElementById('o_customerId').addEventListener('change', e => {
     document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(e.target.value));
