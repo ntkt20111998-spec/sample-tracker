@@ -154,6 +154,16 @@
   .badge.acctsize-c{background:var(--amber-soft); color:var(--amber);}
   .badge.acctsize-d{background:var(--slate-soft); color:var(--slate);}
   .badge.acctsize-none{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.order-trienkhai{background:var(--sage-soft); color:var(--sage);}
+  .badge.order-dangtrienkhai{background:var(--blue-soft); color:var(--blue);}
+  .badge.order-tre{background:var(--rust-soft); color:var(--rust);}
+  .badge.order-none{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.inspect-pass{background:var(--sage-soft); color:var(--sage);}
+  .badge.inspect-fail{background:var(--rust-soft); color:var(--rust);}
+  .badge.inspect-pending{background:var(--amber-soft); color:var(--amber);}
+  .badge.inspect-none{background:#EFEBE3; color:var(--ink-soft);}
+  .badge.lifecycle-done{background:var(--sage-soft); color:var(--sage);}
+  .badge.lifecycle-pending{background:var(--amber-soft); color:var(--amber);}
   .sample-status-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
   .sample-status-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; background:var(--surface);}
   .sample-status-item .sso-num{font-weight:700; color:var(--ink);}
@@ -333,6 +343,7 @@
   <div class="nav-tabs" id="navTabs">
     <button class="nav-tab active" data-module="opportunities">Cơ hội bán hàng</button>
     <button class="nav-tab" data-module="customers">Khách hàng</button>
+    <button class="nav-tab" data-module="orders">Đơn hàng</button>
   </div>
   <div style="display:flex; align-items:center; gap:10px;">
     <button class="user-chip" id="userChip">Đang tải...</button>
@@ -376,6 +387,23 @@
   </div>
   <div class="content">
     <div id="custTableView"></div>
+  </div>
+</div>
+
+<!-- ============ MODULE: ĐƠN HÀNG ============ -->
+<div id="ordersModule" style="display:none;">
+  <div class="stats" id="ordStatsRow"></div>
+  <div class="toolbar">
+    <input type="text" id="ordSearchInput" placeholder="Tìm Số HĐ, khách hàng, sản phẩm...">
+    <select id="ordFilterProgress"><option value="">Tất cả tiến độ</option></select>
+    <select id="ordFilterInspection"><option value="">Tất cả kết quả kiểm hàng</option></select>
+    <select id="ordFilterCustomer"><option value="">Tất cả khách hàng</option></select>
+    <select id="ordFilterPerson"><option value="">Tất cả người phụ trách</option></select>
+    <div class="spacer"></div>
+    <button class="btn-ghost" id="ordExportBtn">Xuất Excel</button>
+  </div>
+  <div class="content">
+    <div id="ordTableView"></div>
   </div>
 </div>
 
@@ -544,8 +572,114 @@
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="oppDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá cơ hội này</button>
         <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="oppCreateOrderBtn" style="display:none;">+ Tạo đơn hàng</button>
         <button type="button" class="btn-ghost" id="oppEditFromViewBtn" style="display:none;">✎ Chỉnh sửa</button>
         <button type="button" class="btn-ghost" id="oppCancelBtn">Huỷ</button>
+        <button type="submit" class="btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Order modal -->
+<div class="overlay modal-lg" id="orderOverlay">
+  <div class="modal">
+    <h2 id="orderModalTitle">Thêm đơn hàng mới</h2>
+    <form id="orderForm">
+      <div class="form-grid">
+        <div>
+          <label>Số HĐ</label>
+          <input type="text" id="ord_orderNumber" placeholder="VD: 157, 108B">
+        </div>
+        <div class="full">
+          <label>Khách hàng / Công ty *</label>
+          <div style="display:flex; gap:8px;">
+            <select id="ord_customerId" style="flex:1;" required><option value="">— Chọn khách hàng —</option></select>
+            <button type="button" class="btn-ghost" id="ordNewCustomerBtn">+ Khách hàng mới</button>
+          </div>
+        </div>
+        <div class="full">
+          <div class="info-box">
+            <div class="info-title">Thông tin khách hàng (tự động điền)</div>
+            <div id="ordCustomerInfo"><div class="info-empty">Chọn khách hàng để xem thông tin.</div></div>
+          </div>
+        </div>
+        <div class="full">
+          <label>Cơ hội gốc (nếu có)</label>
+          <select id="ord_opportunityId"><option value="">— Không liên kết —</option></select>
+        </div>
+        <div>
+          <label>Người phụ trách</label>
+          <select id="ord_personInCharge"><option value="">— Chọn —</option></select>
+          <input type="text" id="ord_personInChargeOther" placeholder="Nhập tên người phụ trách" style="display:none; margin-top:6px;">
+        </div>
+        <div class="full">
+          <label>Loại hàng</label>
+          <div class="checkbox-tags" id="ord_productCategories"></div>
+        </div>
+        <div class="full">
+          <label>Số đơn mẫu</label>
+          <input type="text" id="ord_sampleOrderNumbers" placeholder="VD: 51, 85, 89">
+          <div class="sample-status-list" id="ordSampleStatusList"></div>
+        </div>
+        <div>
+          <label>Trị giá đơn hàng ($)</label>
+          <input type="number" step="0.01" id="ord_orderValue">
+        </div>
+        <div>
+          <label>Ngày triển khai (gửi xưởng)</label>
+          <input type="date" id="ord_deployDate">
+        </div>
+        <div>
+          <label>Ngày yêu cầu giao hàng</label>
+          <input type="date" id="ord_requestedDeliveryDate">
+        </div>
+        <div>
+          <label>Cancel date / ETD</label>
+          <input type="date" id="ord_etdDate">
+        </div>
+        <div>
+          <label>Ngày đóng hàng thực tế</label>
+          <input type="date" id="ord_actualShipDate">
+        </div>
+        <div>
+          <label>Tiến độ đơn hàng</label>
+          <select id="ord_progressStatus"><option value="">— Chọn —</option></select>
+        </div>
+        <div class="full">
+          <label>Cập nhật tình hình SX (nếu có)</label>
+          <textarea id="ord_productionUpdate"></textarea>
+        </div>
+        <div>
+          <label>Kết quả kiểm hàng</label>
+          <select id="ord_inspectionResult"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Ngày final thực tế</label>
+          <input type="date" id="ord_actualFinalDate">
+        </div>
+        <div class="full">
+          <label>Nguyên nhân trễ hàng / lý do fail</label>
+          <textarea id="ord_delayFailReason"></textarea>
+        </div>
+        <div>
+          <label>Phí tổn thực tế ($)</label>
+          <input type="number" step="0.01" id="ord_actualLossCost">
+        </div>
+        <div>
+          <label>Tình trạng</label>
+          <select id="ord_lifecycleStatus"><option value="">— Chọn —</option></select>
+        </div>
+        <div class="full">
+          <label>Ghi chú</label>
+          <textarea id="ord_notes"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="ordDeleteBtn" style="display:none; color:var(--rust); border-color:var(--rust);">Xoá đơn hàng này</button>
+        <div style="flex:1;"></div>
+        <button type="button" class="btn-ghost" id="ordEditFromViewBtn" style="display:none;">✎ Chỉnh sửa</button>
+        <button type="button" class="btn-ghost" id="ordCancelBtn">Huỷ</button>
         <button type="submit" class="btn-primary">Lưu</button>
       </div>
     </form>
@@ -607,8 +741,10 @@ const db = firebase.firestore();
 const AUTH_EMAIL = 'team@catdang-sample-tracker.app';
 const CUSTOMERS_COL = 'customers';
 const OPPORTUNITIES_COL = 'opportunities';
+const ORDERS_COL = 'orders';
 function customersCollection(){ return db.collection(CUSTOMERS_COL); }
 function opportunitiesCollection(){ return db.collection(OPPORTUNITIES_COL); }
+function ordersCollection(){ return db.collection(ORDERS_COL); }
 
 /* ================= DANH MỤC (dropdown lists — theo file THEO DÕI CƠ HỘI BÁN HÀNG) ================= */
 const TEAM_MEMBERS = ['Tiên','Thanh','Tuyên','Dũng','Dung','Mi','Duyên','Nga','Tiến'];
@@ -644,6 +780,28 @@ const PRODUCT_CATEGORIES =['Khay','Tô','Hộp / thùng / office','Khung gương
 const WIN_REASONS = ['Giá cạnh tranh','Chất lượng mẫu tốt','Thời gian giao hàng đáp ứng tốt','Sản phẩm đáp ứng đúng yêu cầu','Dịch vụ / hỗ trợ tốt trong quá trình làm việc','Quan hệ hợp tác lâu năm','Khác'];
 const LOSS_REASONS = ['Giá cạnh tranh hơn','Thời gian giao hàng không đáp ứng','Chất lượng mẫu không đạt','MOQ không phù hợp','Đối thủ thắng','Khách dừng dự án','Khác'];
 const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
+
+/* ================= DANH MỤC: ĐƠN HÀNG ================= */
+const ORDER_PROGRESS_STATUSES = ['Đã triển khai','Đang triển khai','Trễ tiến độ'];
+const ORDER_INSPECTION_RESULTS = ['Pass','Fail','Pending'];
+const ORDER_LIFECYCLE_STATUSES = ['Pending','Done'];
+function orderProgressBadgeClass(s){
+  if(s === 'Đã triển khai') return 'order-trienkhai';
+  if(s === 'Đang triển khai') return 'order-dangtrienkhai';
+  if(s === 'Trễ tiến độ') return 'order-tre';
+  return 'order-none';
+}
+function inspectionResultBadgeClass(s){
+  if(s === 'Pass') return 'inspect-pass';
+  if(s === 'Fail') return 'inspect-fail';
+  if(s === 'Pending') return 'inspect-pending';
+  return 'inspect-none';
+}
+function orderLifecycleBadgeClass(s){
+  if(s === 'Done') return 'lifecycle-done';
+  if(s === 'Pending') return 'lifecycle-pending';
+  return 'order-none';
+}
 function winLossReasonList(status){ return status === 'Thắng đơn' ? WIN_REASONS : LOSS_REASONS; }
 function updateWinLossReasonOptions(status){ fillSelect('o_winLossReason', winLossReasonList(status), '— Chọn —'); }
 function isOppWinLossFieldStatus(status){ return OPP_CLOSED_STATUSES.includes(status) || status === 'Tạm dừng'; }
@@ -667,7 +825,10 @@ function attachCustomersListener(){
     customers.sort((a,b) => (a.companyName||'').localeCompare(b.companyName||''));
     if(currentModule === 'customers') renderCustomersTable();
     populateCustomerSelect();
+    populateCustomerSelect('ord_customerId');
+    populateOrderFilterCustomer();
     if(currentModule === 'opportunities') renderOpportunitiesView();
+    if(currentModule === 'orders') renderOrdersView();
   }, err => {
     console.error('Firestore listen error (customers)', err);
     showToast('Lỗi kết nối dữ liệu khách hàng: ' + err.message);
@@ -690,19 +851,39 @@ function attachOpportunitiesListener(){
   });
 }
 
+/* ---- Orders ---- */
+async function saveOrderDoc(id, data){ await ordersCollection().doc(id).set(data); }
+async function deleteOrderDoc(id){ await ordersCollection().doc(id).delete(); }
+let unsubscribeOrders = null;
+function attachOrdersListener(){
+  if(unsubscribeOrders){ unsubscribeOrders(); unsubscribeOrders = null; }
+  unsubscribeOrders = ordersCollection().onSnapshot(snap => {
+    orders = snap.docs.map(d => d.data());
+    orders.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    if(currentModule === 'orders') renderOrdersView();
+  }, err => {
+    console.error('Firestore listen error (orders)', err);
+    showToast('Lỗi kết nối dữ liệu đơn hàng: ' + err.message);
+  });
+}
+
 /* ================= STATE ================= */
 let customers = [];
 let opportunities = [];
+let orders = [];
 let currentUser = '';
 let currentModule = 'opportunities';
 let oppView = 'table';
 let editingCustomerId = null;
 let customerViewMode = false;
 let editingOppId = null;
+let editingOrderId = null;
+let orderViewMode = false;
 let pendingDeleteId = null;
 let pendingDeleteType = 'opportunity';
 let oppActivityLogDraft = [];
 let pendingReturnToOpportunity = false;
+let pendingReturnToOrder = false;
 let appStarted = false;
 
 /* ================= AUTH / LOGIN FLOW ================= */
@@ -721,6 +902,7 @@ async function startApp(){
   document.getElementById('nameOverlay').classList.remove('open');
   attachCustomersListener();
   attachOpportunitiesListener();
+  attachOrdersListener();
 }
 
 auth.onAuthStateChanged(user => {
@@ -808,10 +990,33 @@ function initStaticDropdowns(){
 
   fillSelect('custFilterMarket', MARKETS, 'Tất cả thị trường');
   fillSelect('custFilterAccountSize', ACCOUNT_SIZES, 'Tất cả quy mô tài khoản');
+
+  fillSelect('ord_progressStatus', ORDER_PROGRESS_STATUSES, '— Chọn —');
+  fillSelect('ord_inspectionResult', ORDER_INSPECTION_RESULTS, '— Chọn —');
+  fillSelect('ord_lifecycleStatus', ORDER_LIFECYCLE_STATUSES, '— Chọn —');
+  populateProductCategoriesCheckboxes('ord_productCategories');
+  populatePersonInChargeSelect('ord_personInCharge');
+  populateCustomerSelect('ord_customerId');
+  populateOpportunityForOrderSelect('');
+
+  fillSelect('ordFilterProgress', ORDER_PROGRESS_STATUSES, 'Tất cả tiến độ');
+  fillSelect('ordFilterInspection', ORDER_INSPECTION_RESULTS, 'Tất cả kết quả kiểm hàng');
+  fillSelect('ordFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
+  populateOrderFilterCustomer();
 }
 
-function populateCustomerSelect(){
-  const sel = document.getElementById('o_customerId');
+function populateOrderFilterCustomer(){
+  const sel = document.getElementById('ordFilterCustomer');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Tất cả khách hàng</option>' +
+    customers.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.companyName)}</option>`).join('');
+  sel.value = cur;
+}
+
+function populateCustomerSelect(targetId){
+  targetId = targetId || 'o_customerId';
+  const sel = document.getElementById(targetId);
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Chọn khách hàng —</option>' +
     customers.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.companyName)}</option>`).join('');
@@ -823,24 +1028,37 @@ function fillSelect(id, values, allLabel){
   el.innerHTML = '<option value="">'+allLabel+'</option>' + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   el.value = cur;
 }
-function populateProductCategoriesCheckboxes(){
-  const wrap = document.getElementById('o_productCategories');
+function populateProductCategoriesCheckboxes(targetId){
+  targetId = targetId || 'o_productCategories';
+  const wrap = document.getElementById(targetId);
   wrap.innerHTML = PRODUCT_CATEGORIES.map(v => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`).join('');
 }
-function getSelectedProductCategories(){
-  return Array.from(document.querySelectorAll('#o_productCategories input[type=checkbox]:checked')).map(cb => cb.value);
+function getSelectedProductCategories(targetId){
+  targetId = targetId || 'o_productCategories';
+  return Array.from(document.querySelectorAll('#'+targetId+' input[type=checkbox]:checked')).map(cb => cb.value);
 }
-function setSelectedProductCategories(cats){
+function setSelectedProductCategories(cats, targetId){
+  targetId = targetId || 'o_productCategories';
   const set = new Set(cats || []);
-  document.querySelectorAll('#o_productCategories input[type=checkbox]').forEach(cb => { cb.checked = set.has(cb.value); });
+  document.querySelectorAll('#'+targetId+' input[type=checkbox]').forEach(cb => { cb.checked = set.has(cb.value); });
 }
-function populatePersonInChargeSelect(){
-  const sel = document.getElementById('o_personInCharge');
+function populatePersonInChargeSelect(targetId){
+  targetId = targetId || 'o_personInCharge';
+  const sel = document.getElementById(targetId);
   const cur = sel.value;
   sel.innerHTML = '<option value="">— Chọn —</option>' +
     TEAM_MEMBERS.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('') +
     '<option value="__other__">Khác...</option>';
   sel.value = cur;
+}
+function populateOpportunityForOrderSelect(customerId){
+  const sel = document.getElementById('ord_opportunityId');
+  if(!sel) return;
+  const cur = sel.value;
+  const list = opportunities.filter(o => o.status === 'Thắng đơn' && (!customerId || o.customerId === customerId));
+  sel.innerHTML = '<option value="">— Không liên kết —</option>' +
+    list.map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml((formatDateOnly(o.dateReceived)||'') + ' - ' + (o.productDesc || o.id))}</option>`).join('');
+  if(cur) sel.value = cur;
 }
 
 function escapeHtml(s){
@@ -854,6 +1072,7 @@ function switchModule(mod){
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.module === mod));
   document.getElementById('opportunitiesModule').style.display = mod === 'opportunities' ? 'block' : 'none';
   document.getElementById('customersModule').style.display = mod === 'customers' ? 'block' : 'none';
+  document.getElementById('ordersModule').style.display = mod === 'orders' ? 'block' : 'none';
 
   const addBtn = document.getElementById('addBtn');
   if(mod === 'opportunities'){
@@ -861,6 +1080,11 @@ function switchModule(mod){
     document.getElementById('appSubtitle').textContent = 'Chào hàng & phát triển sản phẩm mới';
     addBtn.textContent = '+ Thêm cơ hội';
     renderOpportunitiesView();
+  } else if(mod === 'orders'){
+    document.getElementById('appTitle').textContent = 'Đơn hàng';
+    document.getElementById('appSubtitle').textContent = 'Theo dõi tiến độ sản xuất, giao hàng và kiểm hàng';
+    addBtn.textContent = '+ Thêm đơn hàng';
+    renderOrdersView();
   } else {
     document.getElementById('appTitle').textContent = 'Khách hàng';
     document.getElementById('appSubtitle').textContent = 'Danh sách khách hàng — dùng để tự động điền thông tin cơ hội';
@@ -871,6 +1095,7 @@ function switchModule(mod){
 
 function handleAddBtnClick(){
   if(currentModule === 'opportunities') openAddOpportunity();
+  else if(currentModule === 'orders') openAddOrder();
   else openAddCustomer();
 }
 
@@ -1327,6 +1552,7 @@ function resetOppForm(){
   document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(null);
   document.getElementById('oppDeleteBtn').style.display = 'none';
   document.getElementById('oppSampleStatusList').innerHTML = '';
+  document.getElementById('oppCreateOrderBtn').style.display = 'none';
   oppActivityLogDraft = [];
   renderOppLogList();
   pendingOppImages = [];
@@ -1420,6 +1646,8 @@ function populateOppFormFields(o){
   document.getElementById('o_winLossWrap').style.display = isOppWinLossFieldStatus(o.status) ? 'block' : 'none';
   oppActivityLogDraft = (o.activityLog || []).slice();
   renderOppLogList();
+  const createOrderBtn = document.getElementById('oppCreateOrderBtn');
+  if(createOrderBtn) createOrderBtn.style.display = (o.status === 'Thắng đơn') ? '' : 'none';
 }
 
 function closeOppModal(){
@@ -1629,18 +1857,20 @@ async function loadSampleSheetMap(force){
   return map;
 }
 
-async function renderSampleOrderStatuses(raw){
-  const wrap = document.getElementById('oppSampleStatusList');
+async function renderSampleOrderStatuses(raw, wrapId){
+  wrapId = wrapId || 'oppSampleStatusList';
+  const wrap = document.getElementById(wrapId);
   if(!wrap) return;
   const tokens = String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
   if(!tokens.length){ wrap.innerHTML = ''; return; }
-  const requestToken = (renderSampleOrderStatuses._token = (renderSampleOrderStatuses._token || 0) + 1);
+  renderSampleOrderStatuses._tokens = renderSampleOrderStatuses._tokens || {};
+  const requestToken = (renderSampleOrderStatuses._tokens[wrapId] = (renderSampleOrderStatuses._tokens[wrapId] || 0) + 1);
   wrap.innerHTML = tokens.map(t => `
     <div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-unknown">Đang tải...</span></div>
   `).join('');
   try{
     const map = await loadSampleSheetMap(false);
-    if(requestToken !== renderSampleOrderStatuses._token) return; // đã có yêu cầu mới hơn
+    if(requestToken !== renderSampleOrderStatuses._tokens[wrapId]) return; // đã có yêu cầu mới hơn
     wrap.innerHTML = tokens.map(t => {
       const hit = map.get(normSampleOrderKey(t));
       if(!hit){
@@ -1653,7 +1883,7 @@ async function renderSampleOrderStatuses(raw){
     }).join('');
   }catch(err){
     console.error('Load sample sheet error', err);
-    if(requestToken !== renderSampleOrderStatuses._token) return;
+    if(requestToken !== renderSampleOrderStatuses._tokens[wrapId]) return;
     wrap.innerHTML = tokens.map(t => `
       <div class="sample-status-item"><span class="sso-num">#${escapeHtml(t)}</span><span class="badge sheet-unknown">Lỗi tải trạng thái</span></div>
     `).join('');
@@ -1665,7 +1895,8 @@ function askDelete(id, type){
   pendingDeleteType = type || 'opportunity';
   const titles = {
     customer: 'Xoá khách hàng này?',
-    opportunity: 'Xoá cơ hội này?'
+    opportunity: 'Xoá cơ hội này?',
+    order: 'Xoá đơn hàng này?'
   };
   document.getElementById('confirmTitle').textContent = titles[pendingDeleteType] || 'Xoá mục này?';
   document.getElementById('confirmOverlay').classList.add('open');
@@ -1682,6 +1913,10 @@ async function confirmDelete(){
         await deleteOpportunityDoc(pendingDeleteId);
         showToast('Đã xoá cơ hội');
         closeOppModal();
+      } else if(pendingDeleteType === 'order'){
+        await deleteOrderDoc(pendingDeleteId);
+        showToast('Đã xoá đơn hàng');
+        closeOrderModal();
       }
     }catch(err){
       console.error('Delete error', err);
@@ -1795,6 +2030,357 @@ async function exportOppXlsx(){
   URL.revokeObjectURL(url);
 }
 
+/* ================= MODULE: ĐƠN HÀNG ================= */
+function orderById(id){ return orders.find(o => o.id === id); }
+
+function getFilteredOrders(){
+  const q = document.getElementById('ordSearchInput').value.trim().toLowerCase();
+  const progress = document.getElementById('ordFilterProgress').value;
+  const inspection = document.getElementById('ordFilterInspection').value;
+  const customerId = document.getElementById('ordFilterCustomer').value;
+  const person = document.getElementById('ordFilterPerson').value;
+  return orders.filter(o => {
+    const c = customerById(o.customerId);
+    if(progress && o.progressStatus !== progress) return false;
+    if(inspection && o.inspectionResult !== inspection) return false;
+    if(customerId && o.customerId !== customerId) return false;
+    if(person && (o.personInCharge || '') !== person) return false;
+    if(q){
+      const cats = o.productCategories || [];
+      const hay = [o.orderNumber, c ? c.companyName : '', c ? c.customerCode : '', cats.join(' ')].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function populateOrderFilterPerson(){
+  const used = new Set(TEAM_MEMBERS);
+  orders.forEach(o => { if(o.personInCharge) used.add(o.personInCharge); });
+  fillSelect('ordFilterPerson', [...used].sort(), 'Tất cả người phụ trách');
+}
+
+function renderOrdersView(){
+  populateCustomerSelect('ord_customerId');
+  populateOrderFilterCustomer();
+  populateOrderFilterPerson();
+  renderOrderStats();
+  renderOrdersTable();
+}
+
+function renderOrderStats(){
+  const total = orders.length;
+  const totalValue = orders.reduce((sum,o) => sum + (Number(o.orderValue) || 0), 0);
+  const lateCount = orders.filter(o => o.progressStatus === 'Trễ tiến độ').length;
+  const inspectIssueCount = orders.filter(o => o.inspectionResult === 'Fail' || o.inspectionResult === 'Pending').length;
+  const html = `
+    <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số đơn hàng</div></div>
+    <div class="stat-card"><div class="num">$${totalValue.toLocaleString('en-US')}</div><div class="label">Tổng giá trị</div></div>
+    <div class="stat-card overdue"><div class="num">${lateCount}</div><div class="label">Trễ tiến độ</div></div>
+    <div class="stat-card overdue"><div class="num">${inspectIssueCount}</div><div class="label">Kiểm hàng Fail/Pending</div></div>
+  `;
+  document.getElementById('ordStatsRow').innerHTML = html;
+}
+
+function renderOrdersTable(){
+  const list = getFilteredOrders();
+  const container = document.getElementById('ordTableView');
+  if(list.length === 0){
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có đơn hàng nào khớp</h3><p>Thử đổi bộ lọc hoặc thêm đơn hàng mới.</p></div>`;
+    return;
+  }
+  const rows = list.map(o => {
+    const c = customerById(o.customerId);
+    const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : '—';
+    return `
+      <tr data-id="${o.id}">
+        <td>${escapeHtml(o.orderNumber || '—')}</td>
+        <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
+        <td>${escapeHtml(cats)}</td>
+        <td>${o.orderValue ? '$'+Number(o.orderValue).toLocaleString('en-US') : '—'}</td>
+        <td>${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
+        <td>${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
+        <td>${escapeHtml(formatDateOnly(o.actualFinalDate) || '—')}</td>
+        <td><span class="badge ${orderProgressBadgeClass(o.progressStatus)}">${escapeHtml(o.progressStatus || '—')}</span></td>
+        <td>${escapeHtml(o.sampleOrderNumbers || '—')}</td>
+        <td><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
+        <td><span class="badge ${orderLifecycleBadgeClass(o.lifecycleStatus)}">${escapeHtml(o.lifecycleStatus || '—')}</span></td>
+        <td>${escapeHtml(o.personInCharge || '—')}</td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn ord-view-btn" data-id="${o.id}" title="Xem">👁</button>
+            <button class="icon-btn ord-edit-btn" data-id="${o.id}" title="Sửa">✎</button>
+            <button class="icon-btn ord-del-btn" data-id="${o.id}" title="Xoá">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Số HĐ</th><th>Khách hàng</th><th>Loại hàng</th><th>Trị giá</th><th>Ngày triển khai</th>
+        <th>Ngày YC giao</th><th>Ngày final thực tế</th><th>Tiến độ</th><th>Số đơn mẫu</th>
+        <th>Kết quả kiểm hàng</th><th>Tình trạng</th><th>Phụ trách</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  container.querySelectorAll('.ord-view-btn').forEach(b => b.addEventListener('click', e => openViewOrder(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.ord-edit-btn').forEach(b => b.addEventListener('click', e => openEditOrder(e.currentTarget.dataset.id)));
+  container.querySelectorAll('.ord-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'order')));
+}
+
+function resetOrderForm(){
+  ['ord_orderNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
+  ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
+  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_progressStatus','ord_inspectionResult','ord_lifecycleStatus'].forEach(id => document.getElementById(id).value = '');
+  setSelectedProductCategories([], 'ord_productCategories');
+  document.getElementById('ord_personInChargeOther').style.display = 'none';
+  document.getElementById('ord_personInChargeOther').value = '';
+  document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(null);
+  document.getElementById('ordDeleteBtn').style.display = 'none';
+  document.getElementById('ordSampleStatusList').innerHTML = '';
+  document.getElementById('ord_productionUpdate').style.height = '';
+  document.getElementById('ord_delayFailReason').style.height = '';
+  document.getElementById('ord_notes').style.height = '';
+  populateOpportunityForOrderSelect('');
+}
+
+function populateOrderFormFields(o){
+  document.getElementById('ord_orderNumber').value = o.orderNumber || '';
+  document.getElementById('ord_customerId').value = o.customerId || '';
+  populateOpportunityForOrderSelect(o.customerId || '');
+  document.getElementById('ord_opportunityId').value = o.opportunityId || '';
+  {
+    const resolvedPerson = o.personInCharge || '';
+    const personSel = document.getElementById('ord_personInCharge');
+    const otherInput = document.getElementById('ord_personInChargeOther');
+    if(resolvedPerson && TEAM_MEMBERS.includes(resolvedPerson)){
+      personSel.value = resolvedPerson;
+      otherInput.style.display = 'none';
+      otherInput.value = '';
+    } else if(resolvedPerson){
+      personSel.value = '__other__';
+      otherInput.style.display = 'block';
+      otherInput.value = resolvedPerson;
+    } else {
+      personSel.value = '';
+      otherInput.style.display = 'none';
+      otherInput.value = '';
+    }
+  }
+  setSelectedProductCategories(o.productCategories || [], 'ord_productCategories');
+  document.getElementById('ord_sampleOrderNumbers').value = o.sampleOrderNumbers || '';
+  renderSampleOrderStatuses(o.sampleOrderNumbers, 'ordSampleStatusList');
+  document.getElementById('ord_orderValue').value = o.orderValue || '';
+  document.getElementById('ord_deployDate').value = o.deployDate || '';
+  document.getElementById('ord_requestedDeliveryDate').value = o.requestedDeliveryDate || '';
+  document.getElementById('ord_etdDate').value = o.etdDate || '';
+  document.getElementById('ord_actualShipDate').value = o.actualShipDate || '';
+  document.getElementById('ord_progressStatus').value = o.progressStatus || '';
+  document.getElementById('ord_productionUpdate').value = o.productionUpdate || '';
+  document.getElementById('ord_inspectionResult').value = o.inspectionResult || '';
+  document.getElementById('ord_actualFinalDate').value = o.actualFinalDate || '';
+  document.getElementById('ord_delayFailReason').value = o.delayFailReason || '';
+  document.getElementById('ord_actualLossCost').value = o.actualLossCost || '';
+  document.getElementById('ord_lifecycleStatus').value = o.lifecycleStatus || '';
+  document.getElementById('ord_notes').value = o.notes || '';
+  document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
+}
+
+function openAddOrder(){
+  editingOrderId = null;
+  resetOrderForm();
+  setOrderViewMode(false);
+  document.getElementById('orderModalTitle').textContent = 'Thêm đơn hàng mới';
+  document.getElementById('orderOverlay').classList.add('open');
+}
+
+function openEditOrder(id){
+  const o = orderById(id);
+  if(!o) return;
+  editingOrderId = id;
+  resetOrderForm();
+  populateOrderFormFields(o);
+  setOrderViewMode(false);
+  document.getElementById('orderOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('ord_productionUpdate'));
+  autoGrowTextarea(document.getElementById('ord_delayFailReason'));
+  autoGrowTextarea(document.getElementById('ord_notes'));
+}
+
+function openViewOrder(id){
+  const o = orderById(id);
+  if(!o) return;
+  editingOrderId = id;
+  resetOrderForm();
+  populateOrderFormFields(o);
+  setOrderViewMode(true);
+  document.getElementById('orderOverlay').classList.add('open');
+  autoGrowTextarea(document.getElementById('ord_productionUpdate'));
+  autoGrowTextarea(document.getElementById('ord_delayFailReason'));
+  autoGrowTextarea(document.getElementById('ord_notes'));
+}
+
+function openAddOrderFromOpportunity(o){
+  editingOrderId = null;
+  resetOrderForm();
+  setOrderViewMode(false);
+  document.getElementById('orderModalTitle').textContent = 'Thêm đơn hàng mới';
+  document.getElementById('ord_customerId').value = o.customerId || '';
+  populateOpportunityForOrderSelect(o.customerId || '');
+  document.getElementById('ord_opportunityId').value = o.id || '';
+  {
+    const resolvedPerson = o.personInCharge || '';
+    const personSel = document.getElementById('ord_personInCharge');
+    const otherInput = document.getElementById('ord_personInChargeOther');
+    if(resolvedPerson && TEAM_MEMBERS.includes(resolvedPerson)){
+      personSel.value = resolvedPerson;
+    } else if(resolvedPerson){
+      personSel.value = '__other__';
+      otherInput.style.display = 'block';
+      otherInput.value = resolvedPerson;
+    }
+  }
+  setSelectedProductCategories(o.productCategories || (o.productCategory ? [o.productCategory] : []), 'ord_productCategories');
+  document.getElementById('ord_sampleOrderNumbers').value = o.sampleOrderNumbers || '';
+  renderSampleOrderStatuses(o.sampleOrderNumbers, 'ordSampleStatusList');
+  document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
+  document.getElementById('orderOverlay').classList.add('open');
+}
+
+function setOrderViewMode(isView){
+  orderViewMode = isView;
+  const form = document.getElementById('orderForm');
+  form.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = isView; });
+  document.getElementById('ordNewCustomerBtn').style.display = isView ? 'none' : '';
+  document.getElementById('ordDeleteBtn').style.display = (!isView && editingOrderId) ? 'inline-block' : 'none';
+  document.getElementById('ordEditFromViewBtn').style.display = isView ? 'inline-block' : 'none';
+  const submitBtn = document.querySelector('#orderForm button[type="submit"]');
+  if(submitBtn) submitBtn.style.display = isView ? 'none' : '';
+  document.getElementById('ordCancelBtn').textContent = isView ? 'Đóng' : 'Huỷ';
+  document.getElementById('orderModalTitle').textContent = isView ? 'Xem đơn hàng' : (editingOrderId ? 'Sửa đơn hàng' : 'Thêm đơn hàng mới');
+  autoGrowTextarea(document.getElementById('ord_productionUpdate'));
+  autoGrowTextarea(document.getElementById('ord_delayFailReason'));
+  autoGrowTextarea(document.getElementById('ord_notes'));
+}
+
+function closeOrderModal(){
+  document.getElementById('orderOverlay').classList.remove('open');
+}
+
+async function saveOrder(e){
+  e.preventDefault();
+  const customerId = document.getElementById('ord_customerId').value;
+  if(!customerId){
+    showToast('Vui lòng chọn Khách hàng / Công ty (tạo mới nếu chưa có).');
+    return;
+  }
+  const now = new Date().toISOString();
+  const formData = {
+    orderNumber: document.getElementById('ord_orderNumber').value.trim(),
+    customerId,
+    opportunityId: document.getElementById('ord_opportunityId').value,
+    personInCharge: (document.getElementById('ord_personInCharge').value === '__other__')
+      ? document.getElementById('ord_personInChargeOther').value.trim()
+      : document.getElementById('ord_personInCharge').value,
+    productCategories: getSelectedProductCategories('ord_productCategories'),
+    sampleOrderNumbers: document.getElementById('ord_sampleOrderNumbers').value.trim(),
+    orderValue: document.getElementById('ord_orderValue').value ? Number(document.getElementById('ord_orderValue').value) : null,
+    deployDate: document.getElementById('ord_deployDate').value,
+    requestedDeliveryDate: document.getElementById('ord_requestedDeliveryDate').value,
+    etdDate: document.getElementById('ord_etdDate').value,
+    actualShipDate: document.getElementById('ord_actualShipDate').value,
+    progressStatus: document.getElementById('ord_progressStatus').value,
+    productionUpdate: document.getElementById('ord_productionUpdate').value.trim(),
+    inspectionResult: document.getElementById('ord_inspectionResult').value,
+    actualFinalDate: document.getElementById('ord_actualFinalDate').value,
+    delayFailReason: document.getElementById('ord_delayFailReason').value.trim(),
+    actualLossCost: document.getElementById('ord_actualLossCost').value ? Number(document.getElementById('ord_actualLossCost').value) : null,
+    lifecycleStatus: document.getElementById('ord_lifecycleStatus').value,
+    notes: document.getElementById('ord_notes').value.trim(),
+  };
+  try{
+    if(editingOrderId){
+      const existing = orderById(editingOrderId);
+      await saveOrderDoc(editingOrderId, Object.assign({}, existing, formData, {id: editingOrderId, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã cập nhật đơn hàng');
+    } else {
+      const id = 'dh-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+      await saveOrderDoc(id, Object.assign({id}, formData, {createdAt: now, updatedAt: now, updatedBy: currentUser}));
+      showToast('Đã thêm đơn hàng mới');
+    }
+    closeOrderModal();
+  }catch(err){
+    console.error('Save order error', err);
+    showToast('Lỗi lưu đơn hàng: ' + err.message);
+  }
+}
+
+const ORDER_EXPORT_COLUMNS = [
+  {header:'Số HĐ', width:12},
+  {header:'Khách hàng / Công ty', width:24},
+  {header:'Mã KH', width:10},
+  {header:'Loại hàng', width:20},
+  {header:'Trị giá ($)', width:13},
+  {header:'Ngày triển khai', width:14},
+  {header:'Ngày yêu cầu giao', width:14},
+  {header:'Cancel date / ETD', width:14},
+  {header:'Ngày đóng hàng thực tế', width:16},
+  {header:'Tiến độ đơn hàng', width:15},
+  {header:'Cập nhật tình hình SX', width:28},
+  {header:'Số đơn mẫu', width:14},
+  {header:'Kết quả kiểm hàng', width:14},
+  {header:'Ngày final thực tế', width:14},
+  {header:'Nguyên nhân trễ/fail', width:26},
+  {header:'Phí tổn thực tế ($)', width:14},
+  {header:'Tình trạng', width:11},
+  {header:'Phụ trách', width:13},
+  {header:'Ghi chú', width:22},
+];
+
+async function exportOrdersXlsx(){
+  if(typeof ExcelJS === 'undefined'){
+    showToast('Không tải được thư viện xuất Excel — kiểm tra kết nối mạng.');
+    return;
+  }
+  const list = getFilteredOrders();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Theo doi Don hang', {views:[{state:'frozen', xSplit:2, ySplit:1}]});
+  ws.columns = ORDER_EXPORT_COLUMNS.map(c => ({width: c.width}));
+  const headerRow = ws.getRow(1);
+  ORDER_EXPORT_COLUMNS.forEach((c, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = c.header;
+    cell.font = {name:'Calibri', bold:true, size:11};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF1E1D3'}};
+    cell.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+  });
+  headerRow.height = 30;
+  list.forEach((o, idx) => {
+    const c = customerById(o.customerId) || {};
+    const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : '';
+    const row = ws.getRow(2 + idx);
+    row.values = [
+      o.orderNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderValue || '',
+      formatDateOnly(o.deployDate) || '', formatDateOnly(o.requestedDeliveryDate) || '', formatDateOnly(o.etdDate) || '',
+      formatDateOnly(o.actualShipDate) || '', o.progressStatus || '', o.productionUpdate || '',
+      o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.actualFinalDate) || '',
+      o.delayFailReason || '', o.actualLossCost || '', o.lifecycleStatus || '', o.personInCharge || '', o.notes || '',
+    ];
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.font = {name:'Calibri', size:11};
+      cell.alignment = {vertical:'top', wrapText:true};
+    });
+  });
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'Theo-doi-Don-hang-' + new Date().toISOString().slice(0,10) + '.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ================= TOAST ================= */
 let toastTimer;
 function showToast(msg){
@@ -1818,6 +2404,10 @@ function closeCustomerModalMaybeReturn(){
     pendingReturnToOpportunity = false;
     document.getElementById('oppOverlay').classList.add('open');
   }
+  if(pendingReturnToOrder){
+    pendingReturnToOrder = false;
+    document.getElementById('orderOverlay').classList.add('open');
+  }
 }
 
 function bindEvents(){
@@ -1832,13 +2422,21 @@ function bindEvents(){
   document.getElementById('custDeleteBtn').addEventListener('click', () => askDelete(editingCustomerId, 'customer'));
   document.getElementById('customerOverlay').addEventListener('dblclick', e => { if(e.target.id === 'customerOverlay') closeCustomerModalMaybeReturn(); });
   document.getElementById('customerForm').addEventListener('submit', async e => {
-    const wasReturning = pendingReturnToOpportunity;
+    const wasReturningOpp = pendingReturnToOpportunity;
+    const wasReturningOrder = pendingReturnToOrder;
     const id = await saveCustomer(e, {keepOpen: false});
-    if(id && wasReturning){
+    if(id && wasReturningOpp){
       pendingReturnToOpportunity = false;
       document.getElementById('o_customerId').value = id;
       document.getElementById('oppCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(id));
       document.getElementById('oppOverlay').classList.add('open');
+    }
+    if(id && wasReturningOrder){
+      pendingReturnToOrder = false;
+      document.getElementById('ord_customerId').value = id;
+      populateOpportunityForOrderSelect(id);
+      document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(id));
+      document.getElementById('orderOverlay').classList.add('open');
     }
   });
   document.getElementById('c_code').addEventListener('input', validateCustomerCode);
@@ -1860,6 +2458,14 @@ function bindEvents(){
   document.getElementById('o_status').addEventListener('change', e => {
     document.getElementById('o_winLossWrap').style.display = isOppWinLossFieldStatus(e.target.value) ? 'block' : 'none';
     updateWinLossReasonOptions(e.target.value);
+    const createOrderBtn = document.getElementById('oppCreateOrderBtn');
+    if(createOrderBtn) createOrderBtn.style.display = (e.target.value === 'Thắng đơn') ? '' : 'none';
+  });
+  document.getElementById('oppCreateOrderBtn').addEventListener('click', () => {
+    const o = editingOppId ? opportunityById(editingOppId) : null;
+    if(!o) return;
+    document.getElementById('oppOverlay').classList.remove('open');
+    openAddOrderFromOpportunity(o);
   });
   document.getElementById('o_personInCharge').addEventListener('change', e => {
     const otherInput = document.getElementById('o_personInChargeOther');
@@ -1937,6 +2543,43 @@ function bindEvents(){
   document.getElementById('saveNameBtn').addEventListener('click', handleLoginSubmit);
   document.getElementById('passcodeInput').addEventListener('keydown', e => { if(e.key==='Enter') handleLoginSubmit(); });
   document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key==='Enter') handleLoginSubmit(); });
+
+  /* ---- Orders module ---- */
+  document.getElementById('ordCancelBtn').addEventListener('click', closeOrderModal);
+  document.getElementById('ordDeleteBtn').addEventListener('click', () => askDelete(editingOrderId, 'order'));
+  document.getElementById('ordEditFromViewBtn').addEventListener('click', () => setOrderViewMode(false));
+  document.getElementById('orderOverlay').addEventListener('dblclick', e => { if(e.target.id === 'orderOverlay') closeOrderModal(); });
+  document.getElementById('orderForm').addEventListener('submit', saveOrder);
+  document.getElementById('ord_customerId').addEventListener('change', e => {
+    document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(e.target.value));
+    populateOpportunityForOrderSelect(e.target.value);
+  });
+  document.getElementById('ord_personInCharge').addEventListener('change', e => {
+    const otherInput = document.getElementById('ord_personInChargeOther');
+    if(e.target.value === '__other__'){
+      otherInput.style.display = 'block';
+      otherInput.focus();
+    } else {
+      otherInput.style.display = 'none';
+      otherInput.value = '';
+    }
+  });
+  document.getElementById('ordNewCustomerBtn').addEventListener('click', () => {
+    document.getElementById('orderOverlay').classList.remove('open');
+    pendingReturnToOrder = true;
+    openAddCustomer();
+  });
+  document.getElementById('ord_sampleOrderNumbers').addEventListener('blur', e => {
+    renderSampleOrderStatuses(e.target.value, 'ordSampleStatusList');
+  });
+  ['ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => {
+    document.getElementById(id).addEventListener('input', e => autoGrowTextarea(e.target));
+  });
+  ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderOrdersTable));
+  ['ordFilterProgress','ordFilterInspection','ordFilterCustomer','ordFilterPerson'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderOrdersTable);
+  });
+  document.getElementById('ordExportBtn').addEventListener('click', exportOrdersXlsx);
 
 }
 
