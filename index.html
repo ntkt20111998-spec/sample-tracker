@@ -397,6 +397,7 @@
     <input type="text" id="ordSearchInput" placeholder="Tìm Số HĐ, khách hàng, sản phẩm...">
     <select id="ordFilterProgress"><option value="">Tất cả tiến độ</option></select>
     <select id="ordFilterInspection"><option value="">Tất cả kết quả kiểm hàng</option></select>
+    <select id="ordFilterOrderType"><option value="">Tất cả loại đơn hàng</option></select>
     <select id="ordFilterCustomer"><option value="">Tất cả khách hàng</option></select>
     <select id="ordFilterPerson"><option value="">Tất cả người phụ trách</option></select>
     <div class="spacer"></div>
@@ -617,6 +618,15 @@
           <label>Loại hàng</label>
           <div class="checkbox-tags" id="ord_productCategories"></div>
         </div>
+        <div>
+          <label>Loại đơn hàng</label>
+          <select id="ord_orderType"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Nhóm doanh số</label>
+          <select id="ord_salesGroup"><option value="">— Chọn —</option></select>
+          <div class="field-hint">1: Sale tự tìm khách/phát triển (NV, TP, TN) · 2: Marketing cấp lead, sale chốt · 3: Khách cũ, mẫu mới · 4: Khách cũ, mẫu cũ</div>
+        </div>
         <div class="full">
           <label>Số đơn mẫu</label>
           <input type="text" id="ord_sampleOrderNumbers" placeholder="VD: 51, 85, 89">
@@ -785,6 +795,14 @@ const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
 const ORDER_PROGRESS_STATUSES = ['Đã triển khai','Đang triển khai','Trễ tiến độ'];
 const ORDER_INSPECTION_RESULTS = ['Pass','Fail','Pending'];
 const ORDER_LIFECYCLE_STATUSES = ['Pending','Done'];
+const ORDER_TYPES = ['Newness','Repeat'];
+const SALES_GROUPS = ['1','2','3','4'];
+const SALES_GROUP_LABELS = {
+  '1': '1 - Chủ động hoàn toàn',
+  '2': '2 - Chủ động 1 phần',
+  '3': '3 - Thụ động tích cực',
+  '4': '4 - Thụ động hoàn toàn'
+};
 function orderProgressBadgeClass(s){
   if(s === 'Đã triển khai') return 'order-trienkhai';
   if(s === 'Đang triển khai') return 'order-dangtrienkhai';
@@ -994,6 +1012,8 @@ function initStaticDropdowns(){
   fillSelect('ord_progressStatus', ORDER_PROGRESS_STATUSES, '— Chọn —');
   fillSelect('ord_inspectionResult', ORDER_INSPECTION_RESULTS, '— Chọn —');
   fillSelect('ord_lifecycleStatus', ORDER_LIFECYCLE_STATUSES, '— Chọn —');
+  fillSelect('ord_orderType', ORDER_TYPES, '— Chọn —');
+  populateSalesGroupSelect('ord_salesGroup');
   populateProductCategoriesCheckboxes('ord_productCategories');
   populatePersonInChargeSelect('ord_personInCharge');
   populateCustomerSelect('ord_customerId');
@@ -1001,6 +1021,7 @@ function initStaticDropdowns(){
 
   fillSelect('ordFilterProgress', ORDER_PROGRESS_STATUSES, 'Tất cả tiến độ');
   fillSelect('ordFilterInspection', ORDER_INSPECTION_RESULTS, 'Tất cả kết quả kiểm hàng');
+  fillSelect('ordFilterOrderType', ORDER_TYPES, 'Tất cả loại đơn hàng');
   fillSelect('ordFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
   populateOrderFilterCustomer();
 }
@@ -1026,6 +1047,13 @@ function fillSelect(id, values, allLabel){
   const el = document.getElementById(id);
   const cur = el.value;
   el.innerHTML = '<option value="">'+allLabel+'</option>' + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  el.value = cur;
+}
+function populateSalesGroupSelect(targetId){
+  const el = document.getElementById(targetId);
+  if(!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">— Chọn —</option>' + SALES_GROUPS.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(SALES_GROUP_LABELS[v])}</option>`).join('');
   el.value = cur;
 }
 function populateProductCategoriesCheckboxes(targetId){
@@ -2037,12 +2065,14 @@ function getFilteredOrders(){
   const q = document.getElementById('ordSearchInput').value.trim().toLowerCase();
   const progress = document.getElementById('ordFilterProgress').value;
   const inspection = document.getElementById('ordFilterInspection').value;
+  const orderType = document.getElementById('ordFilterOrderType').value;
   const customerId = document.getElementById('ordFilterCustomer').value;
   const person = document.getElementById('ordFilterPerson').value;
   return orders.filter(o => {
     const c = customerById(o.customerId);
     if(progress && o.progressStatus !== progress) return false;
     if(inspection && o.inspectionResult !== inspection) return false;
+    if(orderType && o.orderType !== orderType) return false;
     if(customerId && o.customerId !== customerId) return false;
     if(person && (o.personInCharge || '') !== person) return false;
     if(q){
@@ -2097,6 +2127,7 @@ function renderOrdersTable(){
         <td>${escapeHtml(o.orderNumber || '—')}</td>
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
         <td>${escapeHtml(cats)}</td>
+        <td>${escapeHtml(o.orderType || '—')}</td>
         <td>${o.orderValue ? '$'+Number(o.orderValue).toLocaleString('en-US') : '—'}</td>
         <td>${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
         <td>${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
@@ -2118,7 +2149,7 @@ function renderOrdersTable(){
   container.innerHTML = `
     <table>
       <thead><tr>
-        <th>Số HĐ</th><th>Khách hàng</th><th>Loại hàng</th><th>Trị giá</th><th>Ngày triển khai</th>
+        <th>Số HĐ</th><th>Khách hàng</th><th>Loại hàng</th><th>Loại đơn hàng</th><th>Trị giá</th><th>Ngày triển khai</th>
         <th>Ngày YC giao</th><th>Ngày final thực tế</th><th>Tiến độ</th><th>Số đơn mẫu</th>
         <th>Kết quả kiểm hàng</th><th>Tình trạng</th><th>Phụ trách</th><th></th>
       </tr></thead>
@@ -2132,7 +2163,7 @@ function renderOrdersTable(){
 function resetOrderForm(){
   ['ord_orderNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
   ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
-  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_progressStatus','ord_inspectionResult','ord_lifecycleStatus'].forEach(id => document.getElementById(id).value = '');
+  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_progressStatus','ord_inspectionResult','ord_lifecycleStatus','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
   setSelectedProductCategories([], 'ord_productCategories');
   document.getElementById('ord_personInChargeOther').style.display = 'none';
   document.getElementById('ord_personInChargeOther').value = '';
@@ -2169,6 +2200,8 @@ function populateOrderFormFields(o){
     }
   }
   setSelectedProductCategories(o.productCategories || [], 'ord_productCategories');
+  document.getElementById('ord_orderType').value = o.orderType || '';
+  document.getElementById('ord_salesGroup').value = o.salesGroup || '';
   document.getElementById('ord_sampleOrderNumbers').value = o.sampleOrderNumbers || '';
   renderSampleOrderStatuses(o.sampleOrderNumbers, 'ordSampleStatusList');
   document.getElementById('ord_orderValue').value = o.orderValue || '';
@@ -2284,6 +2317,8 @@ async function saveOrder(e){
       ? document.getElementById('ord_personInChargeOther').value.trim()
       : document.getElementById('ord_personInCharge').value,
     productCategories: getSelectedProductCategories('ord_productCategories'),
+    orderType: document.getElementById('ord_orderType').value,
+    salesGroup: document.getElementById('ord_salesGroup').value,
     sampleOrderNumbers: document.getElementById('ord_sampleOrderNumbers').value.trim(),
     orderValue: document.getElementById('ord_orderValue').value ? Number(document.getElementById('ord_orderValue').value) : null,
     deployDate: document.getElementById('ord_deployDate').value,
@@ -2321,6 +2356,8 @@ const ORDER_EXPORT_COLUMNS = [
   {header:'Khách hàng / Công ty', width:24},
   {header:'Mã KH', width:10},
   {header:'Loại hàng', width:20},
+  {header:'Loại đơn hàng', width:13},
+  {header:'Nhóm doanh số', width:22},
   {header:'Trị giá ($)', width:13},
   {header:'Ngày triển khai', width:14},
   {header:'Ngày yêu cầu giao', width:14},
@@ -2361,7 +2398,7 @@ async function exportOrdersXlsx(){
     const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : '';
     const row = ws.getRow(2 + idx);
     row.values = [
-      o.orderNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderValue || '',
+      o.orderNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderType || '', SALES_GROUP_LABELS[o.salesGroup] || '', o.orderValue || '',
       formatDateOnly(o.deployDate) || '', formatDateOnly(o.requestedDeliveryDate) || '', formatDateOnly(o.etdDate) || '',
       formatDateOnly(o.actualShipDate) || '', o.progressStatus || '', o.productionUpdate || '',
       o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.actualFinalDate) || '',
@@ -2576,7 +2613,7 @@ function bindEvents(){
     document.getElementById(id).addEventListener('input', e => autoGrowTextarea(e.target));
   });
   ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderOrdersTable));
-  ['ordFilterProgress','ordFilterInspection','ordFilterCustomer','ordFilterPerson'].forEach(id => {
+  ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson'].forEach(id => {
     document.getElementById(id).addEventListener('change', renderOrdersTable);
   });
   document.getElementById('ordExportBtn').addEventListener('click', exportOrdersXlsx);
