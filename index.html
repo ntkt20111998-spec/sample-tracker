@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#FAF7F1;
@@ -291,11 +292,18 @@
   .dash-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px;}
   .dash-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
   .dash-card h3{font-family:var(--font-display); font-size:15px; margin:0 0 10px;}
+  .dash-card.wide{grid-column:1 / -1;}
+  .dash-card .chart-wrap{position:relative; height:230px;}
+  .dash-card .chart-wrap.tall{height:280px;}
   .dash-table{width:100%; border-collapse:collapse; font-size:12.5px;}
   .dash-table th{text-align:left; color:var(--ink-soft); font-weight:600; padding:5px 6px; border-bottom:1px solid var(--line);}
   .dash-table td{padding:5px 6px; border-bottom:1px solid var(--line);}
   .dash-table tr:last-child td{border-bottom:none;}
   @media (max-width:900px){ .dash-grid{grid-template-columns:1fr;} }
+  th.sortable{cursor:pointer; user-select:none; white-space:nowrap;}
+  th.sortable:hover{color:var(--ink);}
+  th.sortable .sort-arrow{display:inline-block; margin-left:3px; font-size:10px; opacity:.35;}
+  th.sortable.sort-active .sort-arrow{opacity:1;}
 
   .modal-lg .modal{max-width:760px;}
   .field-hint{font-size:11px; color:var(--ink-soft); margin-top:3px;}
@@ -402,9 +410,14 @@
     <select id="ordFilterPerson"><option value="">Tất cả người phụ trách</option></select>
     <div class="spacer"></div>
     <button class="btn-ghost" id="ordExportBtn">Xuất Excel</button>
+    <div class="view-toggle">
+      <button id="ordViewTableBtn" class="active">Bảng</button>
+      <button id="ordViewDashboardBtn">Thống kê</button>
+    </div>
   </div>
   <div class="content">
     <div id="ordTableView"></div>
+    <div id="ordDashboardView" style="display:none;"></div>
   </div>
 </div>
 
@@ -897,6 +910,10 @@ let customerViewMode = false;
 let editingOppId = null;
 let editingOrderId = null;
 let orderViewMode = false;
+let ordView = 'table';
+let orderSortField = null;
+let orderSortDir = 'asc';
+let orderCharts = {};
 let pendingDeleteId = null;
 let pendingDeleteType = 'opportunity';
 let oppActivityLogDraft = [];
@@ -2068,7 +2085,7 @@ function getFilteredOrders(){
   const orderType = document.getElementById('ordFilterOrderType').value;
   const customerId = document.getElementById('ordFilterCustomer').value;
   const person = document.getElementById('ordFilterPerson').value;
-  return orders.filter(o => {
+  const list = orders.filter(o => {
     const c = customerById(o.customerId);
     if(progress && o.progressStatus !== progress) return false;
     if(inspection && o.inspectionResult !== inspection) return false;
@@ -2082,6 +2099,37 @@ function getFilteredOrders(){
     }
     return true;
   });
+  if(orderSortField){
+    const dir = orderSortDir === 'desc' ? -1 : 1;
+    list.sort((a, b) => {
+      const va = getOrderSortValue(a, orderSortField);
+      const vb = getOrderSortValue(b, orderSortField);
+      if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), 'vi') * dir;
+    });
+  }
+  return list;
+}
+
+function getOrderSortValue(o, field){
+  if(field === 'customer') return (customerById(o.customerId)?.companyName || '').toLowerCase();
+  if(field === 'productCategories') return (o.productCategories || []).join(', ').toLowerCase();
+  if(field === 'orderValue') return Number(o.orderValue) || 0;
+  if(field === 'orderNumber' || field === 'orderType' || field === 'progressStatus' || field === 'inspectionResult' || field === 'lifecycleStatus' || field === 'personInCharge' || field === 'sampleOrderNumbers'){
+    return (o[field] || '').toLowerCase();
+  }
+  // date fields: ISO yyyy-mm-dd strings sort correctly as strings
+  return o[field] || '';
+}
+
+function setOrderSort(field){
+  if(orderSortField === field){
+    orderSortDir = orderSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    orderSortField = field;
+    orderSortDir = 'asc';
+  }
+  renderOrdersTable();
 }
 
 function populateOrderFilterPerson(){
@@ -2095,7 +2143,15 @@ function renderOrdersView(){
   populateOrderFilterCustomer();
   populateOrderFilterPerson();
   renderOrderStats();
-  renderOrdersTable();
+  if(ordView === 'dashboard') renderOrdersDashboard();
+  else renderOrdersTable();
+}
+
+function switchOrdView(v){
+  ordView = v;
+  document.getElementById('ordViewTableBtn').classList.toggle('active', v==='table');
+  document.getElementById('ordViewDashboardBtn').classList.toggle('active', v==='dashboard');
+  renderOrdersView();
 }
 
 function renderOrderStats(){
@@ -2112,7 +2168,25 @@ function renderOrderStats(){
   document.getElementById('ordStatsRow').innerHTML = html;
 }
 
+const ORDER_TABLE_COLUMNS = [
+  {field:'orderNumber', label:'Số HĐ'},
+  {field:'customer', label:'Khách hàng'},
+  {field:'productCategories', label:'Loại hàng'},
+  {field:'orderType', label:'Loại đơn hàng'},
+  {field:'orderValue', label:'Trị giá'},
+  {field:'deployDate', label:'Ngày triển khai'},
+  {field:'requestedDeliveryDate', label:'Ngày YC giao'},
+  {field:'actualFinalDate', label:'Ngày final thực tế'},
+  {field:'progressStatus', label:'Tiến độ'},
+  {field:'sampleOrderNumbers', label:'Số đơn mẫu'},
+  {field:'inspectionResult', label:'Kết quả kiểm hàng'},
+  {field:'lifecycleStatus', label:'Tình trạng'},
+  {field:'personInCharge', label:'Phụ trách'},
+];
+
 function renderOrdersTable(){
+  document.getElementById('ordTableView').style.display = 'block';
+  document.getElementById('ordDashboardView').style.display = 'none';
   const list = getFilteredOrders();
   const container = document.getElementById('ordTableView');
   if(list.length === 0){
@@ -2146,18 +2220,165 @@ function renderOrdersTable(){
         </td>
       </tr>`;
   }).join('');
+  const headerCells = ORDER_TABLE_COLUMNS.map(col => {
+    const isActive = orderSortField === col.field;
+    const arrow = isActive ? (orderSortDir === 'asc' ? '▲' : '▼') : '▲▼';
+    return `<th class="sortable${isActive ? ' sort-active' : ''}" data-field="${col.field}">${escapeHtml(col.label)}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
   container.innerHTML = `
     <table>
-      <thead><tr>
-        <th>Số HĐ</th><th>Khách hàng</th><th>Loại hàng</th><th>Loại đơn hàng</th><th>Trị giá</th><th>Ngày triển khai</th>
-        <th>Ngày YC giao</th><th>Ngày final thực tế</th><th>Tiến độ</th><th>Số đơn mẫu</th>
-        <th>Kết quả kiểm hàng</th><th>Tình trạng</th><th>Phụ trách</th><th></th>
-      </tr></thead>
+      <thead><tr>${headerCells}<th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  container.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', () => setOrderSort(th.dataset.field)));
   container.querySelectorAll('.ord-view-btn').forEach(b => b.addEventListener('click', e => openViewOrder(e.currentTarget.dataset.id)));
   container.querySelectorAll('.ord-edit-btn').forEach(b => b.addEventListener('click', e => openEditOrder(e.currentTarget.dataset.id)));
   container.querySelectorAll('.ord-del-btn').forEach(b => b.addEventListener('click', e => askDelete(e.currentTarget.dataset.id, 'order')));
+}
+
+/* ================= ĐƠN HÀNG: DASHBOARD / THỐNG KÊ ================= */
+function destroyOrderCharts(){
+  Object.values(orderCharts).forEach(ch => { if(ch) ch.destroy(); });
+  orderCharts = {};
+}
+
+function monthKeyOf(dateStr){
+  const m = String(dateStr || '').match(/^(\d{4})-(\d{2})/);
+  return m ? (m[1] + '-' + m[2]) : null;
+}
+
+function monthLabel(key){
+  const [y, m] = key.split('-');
+  return 'T' + Number(m) + '/' + y;
+}
+
+function buildMonthlyValueSeries(list, dateField){
+  const map = new Map();
+  list.forEach(o => {
+    const key = monthKeyOf(o[dateField]);
+    if(!key) return;
+    map.set(key, (map.get(key) || 0) + (Number(o.orderValue) || 0));
+  });
+  return map;
+}
+
+function renderOrdersDashboard(){
+  document.getElementById('ordTableView').style.display = 'none';
+  const container = document.getElementById('ordDashboardView');
+  container.style.display = 'block';
+  const list = getFilteredOrders();
+
+  if(list.length === 0){
+    destroyOrderCharts();
+    container.innerHTML = `<div class="empty-state"><h3>Chưa có dữ liệu để thống kê</h3><p>Thử đổi bộ lọc hoặc thêm đơn hàng mới.</p></div>`;
+    return;
+  }
+
+  // ---- Nhóm: Tiến độ đơn hàng ----
+  const progressKeys = [...ORDER_PROGRESS_STATUSES, ''];
+  const progressCounts = progressKeys.map(k => list.filter(o => (o.progressStatus || '') === k).length);
+  const progressLabels = [...ORDER_PROGRESS_STATUSES, '(chưa cập nhật)'];
+  const progressColors = ['#6B7B5E', '#B8862E', '#B23A2E', '#9AA5AD'];
+
+  // ---- Nhóm: Loại đơn hàng ----
+  const typeKeys = [...ORDER_TYPES, ''];
+  const typeCounts = typeKeys.map(k => list.filter(o => (o.orderType || '') === k).length);
+  const typeLabels = [...ORDER_TYPES, '(chưa xác định)'];
+  const typeColors = ['#3D6B8C', '#A85C32', '#9AA5AD'];
+
+  // ---- Nhóm: Nhóm doanh số ----
+  const sgKeys = [...SALES_GROUPS, ''];
+  const sgCounts = sgKeys.map(k => list.filter(o => (o.salesGroup || '') === k).length);
+  const sgValues = sgKeys.map(k => list.filter(o => (o.salesGroup || '') === k).reduce((s,o)=>s+(Number(o.orderValue)||0),0));
+  const sgLabels = [...SALES_GROUPS.map(k => SALES_GROUP_LABELS[k]), '(chưa xác định)'];
+
+  // ---- Nhóm: xu hướng theo tháng (triển khai vs xuất hàng) ----
+  const deployMap = buildMonthlyValueSeries(list, 'deployDate');
+  const shipMap = buildMonthlyValueSeries(list, 'actualShipDate');
+  const allMonths = [...new Set([...deployMap.keys(), ...shipMap.keys()])].sort();
+  const deploySeries = allMonths.map(k => deployMap.get(k) || 0);
+  const shipSeries = allMonths.map(k => shipMap.get(k) || 0);
+
+  // ---- Nhóm: theo khách hàng ----
+  const byCustomerMap = new Map();
+  list.forEach(o => {
+    const c = customerById(o.customerId);
+    const key = c ? c.companyName : '(khách chưa xác định)';
+    const cur = byCustomerMap.get(key) || {count:0, value:0};
+    cur.count += 1;
+    cur.value += (Number(o.orderValue) || 0);
+    byCustomerMap.set(key, cur);
+  });
+  const byCustomerRows = [...byCustomerMap.entries()].sort((a,b) => b[1].value - a[1].value).slice(0, 10);
+
+  // ---- Nhóm: theo khu vực (thị trường) ----
+  const byMarketMap = new Map();
+  list.forEach(o => {
+    const c = customerById(o.customerId);
+    const key = (c && c.market) ? c.market : '(chưa xác định)';
+    const cur = byMarketMap.get(key) || {count:0, value:0};
+    cur.count += 1;
+    cur.value += (Number(o.orderValue) || 0);
+    byMarketMap.set(key, cur);
+  });
+  const byMarketRows = [...byMarketMap.entries()].sort((a,b) => b[1].value - a[1].value);
+
+  container.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><h3>Theo tiến độ đơn hàng</h3><div class="chart-wrap"><canvas id="ordChartProgress"></canvas></div></div>
+      <div class="dash-card"><h3>Theo loại đơn hàng</h3><div class="chart-wrap"><canvas id="ordChartType"></canvas></div></div>
+      <div class="dash-card"><h3>Theo nhóm doanh số</h3><div class="chart-wrap"><canvas id="ordChartSalesGroup"></canvas></div></div>
+      <div class="dash-card wide"><h3>Xu hướng theo tháng (Tổng giá trị $)</h3><div class="chart-wrap tall"><canvas id="ordChartTrend"></canvas></div></div>
+      <div class="dash-card">
+        <h3>Theo khách hàng (top 10 theo giá trị)</h3>
+        <table class="dash-table"><thead><tr><th>Khách hàng</th><th>SL đơn</th><th>Tổng giá trị</th></tr></thead>
+        <tbody>${byCustomerRows.map(([name, r]) => `<tr><td>${escapeHtml(name)}</td><td>${r.count}</td><td>$${r.value.toLocaleString('en-US')}</td></tr>`).join('') || '<tr><td colspan="3">Chưa có dữ liệu</td></tr>'}</tbody></table>
+      </div>
+      <div class="dash-card">
+        <h3>Theo khu vực (thị trường)</h3>
+        <table class="dash-table"><thead><tr><th>Khu vực</th><th>SL đơn</th><th>Tổng giá trị</th></tr></thead>
+        <tbody>${byMarketRows.map(([name, r]) => `<tr><td>${escapeHtml(name)}</td><td>${r.count}</td><td>$${r.value.toLocaleString('en-US')}</td></tr>`).join('') || '<tr><td colspan="3">Chưa có dữ liệu</td></tr>'}</tbody></table>
+      </div>
+    </div>`;
+
+  destroyOrderCharts();
+  if(typeof Chart === 'undefined') return; // thư viện chưa tải kịp — bảng vẫn hiển thị đầy đủ
+
+  orderCharts.progress = new Chart(document.getElementById('ordChartProgress'), {
+    type: 'doughnut',
+    data: {labels: progressLabels, datasets: [{data: progressCounts, backgroundColor: progressColors}]},
+    options: {plugins:{legend:{position:'bottom', labels:{boxWidth:11, font:{size:11}}}}}
+  });
+  orderCharts.type = new Chart(document.getElementById('ordChartType'), {
+    type: 'doughnut',
+    data: {labels: typeLabels, datasets: [{data: typeCounts, backgroundColor: typeColors}]},
+    options: {plugins:{legend:{position:'bottom', labels:{boxWidth:11, font:{size:11}}}}}
+  });
+  orderCharts.salesGroup = new Chart(document.getElementById('ordChartSalesGroup'), {
+    type: 'bar',
+    data: {labels: sgLabels, datasets: [
+      {label:'Số đơn', data: sgCounts, backgroundColor:'#A85C32', yAxisID:'y'},
+    ]},
+    options: {
+      indexAxis: 'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true, ticks:{precision:0}}}
+    }
+  });
+  orderCharts.trend = new Chart(document.getElementById('ordChartTrend'), {
+    type: 'bar',
+    data: {
+      labels: allMonths.map(monthLabel),
+      datasets: [
+        {label:'Triển khai (gửi xưởng)', data: deploySeries, backgroundColor:'#3D6B8C'},
+        {label:'Xuất hàng thực tế', data: shipSeries, backgroundColor:'#6B7B5E'},
+      ]
+    },
+    options: {
+      plugins:{legend:{position:'bottom', labels:{boxWidth:11, font:{size:11}}}},
+      scales:{y:{beginAtZero:true, ticks:{callback:v => '$'+Number(v).toLocaleString('en-US')}}}
+    }
+  });
 }
 
 function resetOrderForm(){
@@ -2612,11 +2833,13 @@ function bindEvents(){
   ['ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => {
     document.getElementById(id).addEventListener('input', e => autoGrowTextarea(e.target));
   });
-  ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderOrdersTable));
+  ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); }));
   ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson'].forEach(id => {
-    document.getElementById(id).addEventListener('change', renderOrdersTable);
+    document.getElementById(id).addEventListener('change', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); });
   });
   document.getElementById('ordExportBtn').addEventListener('click', exportOrdersXlsx);
+  document.getElementById('ordViewTableBtn').addEventListener('click', () => switchOrdView('table'));
+  document.getElementById('ordViewDashboardBtn').addEventListener('click', () => switchOrdView('dashboard'));
 
 }
 
