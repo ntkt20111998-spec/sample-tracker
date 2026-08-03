@@ -107,6 +107,10 @@
   .checkbox-tags{display:flex; flex-wrap:wrap; gap:6px;}
   .checkbox-tags label{display:flex; align-items:center; gap:5px; font-size:12px; padding:5px 9px; border:1px solid var(--line); border-radius:14px; cursor:pointer; background:#FCFAF6; color:var(--ink-soft);}
   .checkbox-tags input{margin:0;}
+  .checklist{display:flex; flex-direction:column; gap:2px; max-height:280px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px 12px; background:#FCFAF6;}
+  .checklist-item{display:flex; align-items:center; gap:8px; font-size:13px; padding:4px 0; cursor:pointer;}
+  .checklist-item input{margin:0; flex:none;}
+  .progress-sub{font-size:11px; color:var(--ink-soft); margin-top:3px; white-space:nowrap;}
   .opp-img-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;}
   .opp-img-item{position:relative; width:64px; height:64px;}
   .opp-img-item img{width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer; display:block;}
@@ -605,6 +609,10 @@
           <label>Số HĐ</label>
           <input type="text" id="ord_orderNumber" placeholder="VD: 157, 108B">
         </div>
+        <div>
+          <label>PO No.</label>
+          <input type="text" id="ord_poNumber" placeholder="VD: PO-2026-0456">
+        </div>
         <div class="full">
           <label>Khách hàng / Công ty *</label>
           <div style="display:flex; gap:8px;">
@@ -665,9 +673,9 @@
           <label>Ngày đóng hàng thực tế</label>
           <input type="date" id="ord_actualShipDate">
         </div>
-        <div>
+        <div class="full">
           <label>Tiến độ đơn hàng</label>
-          <select id="ord_progressStatus"><option value="">— Chọn —</option></select>
+          <div class="checklist" id="ord_progressChecklist"></div>
         </div>
         <div class="full">
           <label>Cập nhật tình hình SX (nếu có)</label>
@@ -816,11 +824,85 @@ const SALES_GROUP_LABELS = {
   '3': '3 - Thụ động tích cực',
   '4': '4 - Thụ động hoàn toàn'
 };
+const ORDER_PROGRESS_SUMMARY_STATUSES = ['Đang thực hiện','Trễ tiến độ','Hoàn thành'];
 function orderProgressBadgeClass(s){
-  if(s === 'Đã triển khai') return 'order-trienkhai';
-  if(s === 'Đang triển khai') return 'order-dangtrienkhai';
+  if(s === 'Hoàn thành') return 'order-trienkhai';
+  if(s === 'Đang thực hiện') return 'order-dangtrienkhai';
   if(s === 'Trễ tiến độ') return 'order-tre';
   return 'order-none';
+}
+const ORDER_BASE_STEPS = [
+  {key:'confirm_info', label:'Xác nhận thông tin đơn hàng (PO, PI)'},
+  {key:'deploy_contract', label:'Triển khai Hợp đồng SX'},
+  {key:'book_inspection', label:'Book lịch kiểm hàng'},
+  {key:'send_shipping_plan', label:'Gửi kế hoạch xuất hàng'},
+  {key:'inspection', label:'Kiểm hàng'},
+  {key:'shipment', label:'Xuất hàng'},
+  {key:'send_shipping_docs', label:'Gửi chứng từ vận chuyển'},
+  {key:'payment', label:'Thanh toán'},
+];
+const ORDER_NEWNESS_EXTRA_STEPS = [
+  {key:'sample_deploy', label:'Triển khai mẫu (Ký, Test, Photo)'},
+  {key:'ppm_meeting', label:'Họp PPM, ký mẫu'},
+  {key:'sample_handover', label:'Bàn giao mẫu ký'},
+  {key:'send_production_notes', label:'Gửi lưu ý sản xuất'},
+  {key:'send_packing_instructions', label:'Gửi Hướng dẫn đóng gói'},
+  {key:'test_report_confirm', label:'Hoàn thành test - Xác nhận Test Report'},
+  {key:'send_photo_sample', label:'Gửi mẫu Photo'},
+];
+function getOrderStepList(orderType){
+  if(orderType === 'Newness'){
+    const idx = ORDER_BASE_STEPS.findIndex(s => s.key === 'deploy_contract');
+    return [...ORDER_BASE_STEPS.slice(0, idx+1), ...ORDER_NEWNESS_EXTRA_STEPS, ...ORDER_BASE_STEPS.slice(idx+1)];
+  }
+  return ORDER_BASE_STEPS.slice();
+}
+function getOrderProgressInfo(o){
+  const steps = getOrderStepList(o && o.orderType);
+  const saved = (o && o.progressSteps) || {};
+  const total = steps.length;
+  let doneCount = 0;
+  let nextStep = null;
+  steps.forEach(s => {
+    if(saved[s.key]){ doneCount++; }
+    else if(!nextStep){ nextStep = s; }
+  });
+  const percent = total ? Math.round((doneCount / total) * 100) : 0;
+  const isComplete = total > 0 && doneCount === total;
+  let isOverdue = false;
+  if(!isComplete && o && o.requestedDeliveryDate){
+    const reqDate = new Date(o.requestedDeliveryDate);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if(!isNaN(reqDate.getTime())){
+      reqDate.setHours(0,0,0,0);
+      if(today > reqDate) isOverdue = true;
+    }
+  }
+  let statusLabel = 'Đang thực hiện';
+  if(isComplete) statusLabel = 'Hoàn thành';
+  else if(isOverdue) statusLabel = 'Trễ tiến độ';
+  return {steps, doneCount, total, percent, nextStep, isComplete, isOverdue, statusLabel};
+}
+function renderOrderProgressChecklist(orderType, existingSteps){
+  const wrap = document.getElementById('ord_progressChecklist');
+  if(!wrap) return;
+  const steps = getOrderStepList(orderType);
+  const saved = existingSteps || {};
+  wrap.innerHTML = steps.map(s => `
+    <label class="checklist-item">
+      <input type="checkbox" data-step="${escapeHtml(s.key)}" ${saved[s.key] ? 'checked' : ''}>
+      <span>${escapeHtml(s.label)}</span>
+    </label>
+  `).join('');
+}
+function getSelectedProgressSteps(){
+  const wrap = document.getElementById('ord_progressChecklist');
+  const result = {};
+  if(!wrap) return result;
+  wrap.querySelectorAll('input[data-step]').forEach(inp => {
+    result[inp.dataset.step] = inp.checked;
+  });
+  return result;
 }
 function inspectionResultBadgeClass(s){
   if(s === 'Pass') return 'inspect-pass';
@@ -1026,7 +1108,6 @@ function initStaticDropdowns(){
   fillSelect('custFilterMarket', MARKETS, 'Tất cả thị trường');
   fillSelect('custFilterAccountSize', ACCOUNT_SIZES, 'Tất cả quy mô tài khoản');
 
-  fillSelect('ord_progressStatus', ORDER_PROGRESS_STATUSES, '— Chọn —');
   fillSelect('ord_inspectionResult', ORDER_INSPECTION_RESULTS, '— Chọn —');
   fillSelect('ord_lifecycleStatus', ORDER_LIFECYCLE_STATUSES, '— Chọn —');
   fillSelect('ord_orderType', ORDER_TYPES, '— Chọn —');
@@ -1035,8 +1116,9 @@ function initStaticDropdowns(){
   populatePersonInChargeSelect('ord_personInCharge');
   populateCustomerSelect('ord_customerId');
   populateOpportunityForOrderSelect('');
+  renderOrderProgressChecklist('', {});
 
-  fillSelect('ordFilterProgress', ORDER_PROGRESS_STATUSES, 'Tất cả tiến độ');
+  fillSelect('ordFilterProgress', ORDER_PROGRESS_SUMMARY_STATUSES, 'Tất cả tiến độ');
   fillSelect('ordFilterInspection', ORDER_INSPECTION_RESULTS, 'Tất cả kết quả kiểm hàng');
   fillSelect('ordFilterOrderType', ORDER_TYPES, 'Tất cả loại đơn hàng');
   fillSelect('ordFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
@@ -2087,7 +2169,7 @@ function getFilteredOrders(){
   const person = document.getElementById('ordFilterPerson').value;
   const list = orders.filter(o => {
     const c = customerById(o.customerId);
-    if(progress && o.progressStatus !== progress) return false;
+    if(progress && getOrderProgressInfo(o).statusLabel !== progress) return false;
     if(inspection && o.inspectionResult !== inspection) return false;
     if(orderType && o.orderType !== orderType) return false;
     if(customerId && o.customerId !== customerId) return false;
@@ -2115,7 +2197,8 @@ function getOrderSortValue(o, field){
   if(field === 'customer') return (customerById(o.customerId)?.companyName || '').toLowerCase();
   if(field === 'productCategories') return (o.productCategories || []).join(', ').toLowerCase();
   if(field === 'orderValue') return Number(o.orderValue) || 0;
-  if(field === 'orderNumber' || field === 'orderType' || field === 'progressStatus' || field === 'inspectionResult' || field === 'lifecycleStatus' || field === 'personInCharge' || field === 'sampleOrderNumbers'){
+  if(field === 'progress') return getOrderProgressInfo(o).percent;
+  if(field === 'orderNumber' || field === 'poNumber' || field === 'orderType' || field === 'inspectionResult' || field === 'lifecycleStatus' || field === 'personInCharge' || field === 'sampleOrderNumbers'){
     return (o[field] || '').toLowerCase();
   }
   // date fields: ISO yyyy-mm-dd strings sort correctly as strings
@@ -2157,7 +2240,7 @@ function switchOrdView(v){
 function renderOrderStats(){
   const total = orders.length;
   const totalValue = orders.reduce((sum,o) => sum + (Number(o.orderValue) || 0), 0);
-  const lateCount = orders.filter(o => o.progressStatus === 'Trễ tiến độ').length;
+  const lateCount = orders.filter(o => getOrderProgressInfo(o).isOverdue).length;
   const inspectIssueCount = orders.filter(o => o.inspectionResult === 'Fail' || o.inspectionResult === 'Pending').length;
   const html = `
     <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số đơn hàng</div></div>
@@ -2170,6 +2253,7 @@ function renderOrderStats(){
 
 const ORDER_TABLE_COLUMNS = [
   {field:'orderNumber', label:'Số HĐ'},
+  {field:'poNumber', label:'PO No.'},
   {field:'customer', label:'Khách hàng'},
   {field:'productCategories', label:'Loại hàng'},
   {field:'orderType', label:'Loại đơn hàng'},
@@ -2177,7 +2261,7 @@ const ORDER_TABLE_COLUMNS = [
   {field:'deployDate', label:'Ngày triển khai'},
   {field:'requestedDeliveryDate', label:'Ngày YC giao'},
   {field:'actualFinalDate', label:'Ngày final thực tế'},
-  {field:'progressStatus', label:'Tiến độ'},
+  {field:'progress', label:'Tiến độ'},
   {field:'sampleOrderNumbers', label:'Số đơn mẫu'},
   {field:'inspectionResult', label:'Kết quả kiểm hàng'},
   {field:'lifecycleStatus', label:'Tình trạng'},
@@ -2196,9 +2280,11 @@ function renderOrdersTable(){
   const rows = list.map(o => {
     const c = customerById(o.customerId);
     const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : '—';
+    const prog = getOrderProgressInfo(o);
     return `
       <tr data-id="${o.id}">
         <td>${escapeHtml(o.orderNumber || '—')}</td>
+        <td>${escapeHtml(o.poNumber || '—')}</td>
         <td>${escapeHtml(c ? c.companyName : '(khách chưa xác định)')}</td>
         <td>${escapeHtml(cats)}</td>
         <td>${escapeHtml(o.orderType || '—')}</td>
@@ -2206,7 +2292,10 @@ function renderOrdersTable(){
         <td>${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
         <td>${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
         <td>${escapeHtml(formatDateOnly(o.actualFinalDate) || '—')}</td>
-        <td><span class="badge ${orderProgressBadgeClass(o.progressStatus)}">${escapeHtml(o.progressStatus || '—')}</span></td>
+        <td>
+          <span class="badge ${orderProgressBadgeClass(prog.statusLabel)}">${escapeHtml(prog.statusLabel)}</span>
+          <div class="progress-sub">${prog.percent}%${prog.nextStep ? ' — ' + escapeHtml(prog.nextStep.label) : ''}</div>
+        </td>
         <td>${escapeHtml(o.sampleOrderNumbers || '—')}</td>
         <td><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
         <td><span class="badge ${orderLifecycleBadgeClass(o.lifecycleStatus)}">${escapeHtml(o.lifecycleStatus || '—')}</span></td>
@@ -2274,11 +2363,18 @@ function renderOrdersDashboard(){
     return;
   }
 
-  // ---- Nhóm: Tiến độ đơn hàng ----
-  const progressKeys = [...ORDER_PROGRESS_STATUSES, ''];
-  const progressCounts = progressKeys.map(k => list.filter(o => (o.progressStatus || '') === k).length);
-  const progressLabels = [...ORDER_PROGRESS_STATUSES, '(chưa cập nhật)'];
-  const progressColors = ['#6B7B5E', '#B8862E', '#B23A2E', '#9AA5AD'];
+  // ---- Nhóm: Tiến độ đơn hàng (theo khoảng % hoàn thành) ----
+  const progressBuckets = [
+    {label:'0-25%', test: p => !p.isComplete && p.percent >= 0 && p.percent < 25},
+    {label:'25-50%', test: p => !p.isComplete && p.percent >= 25 && p.percent < 50},
+    {label:'50-75%', test: p => !p.isComplete && p.percent >= 50 && p.percent < 75},
+    {label:'75-99%', test: p => !p.isComplete && p.percent >= 75 && p.percent < 100},
+    {label:'Hoàn thành (100%)', test: p => p.isComplete},
+  ];
+  const progressInfos = list.map(o => getOrderProgressInfo(o));
+  const progressCounts = progressBuckets.map(b => progressInfos.filter(b.test).length);
+  const progressLabels = progressBuckets.map(b => b.label);
+  const progressColors = ['#B23A2E', '#B8862E', '#A85C32', '#3D6B8C', '#6B7B5E'];
 
   // ---- Nhóm: Loại đơn hàng ----
   const typeKeys = [...ORDER_TYPES, ''];
@@ -2382,10 +2478,11 @@ function renderOrdersDashboard(){
 }
 
 function resetOrderForm(){
-  ['ord_orderNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
+  ['ord_orderNumber','ord_poNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
   ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
-  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_progressStatus','ord_inspectionResult','ord_lifecycleStatus','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
+  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_lifecycleStatus','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
   setSelectedProductCategories([], 'ord_productCategories');
+  renderOrderProgressChecklist('', {});
   document.getElementById('ord_personInChargeOther').style.display = 'none';
   document.getElementById('ord_personInChargeOther').value = '';
   document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(null);
@@ -2399,6 +2496,7 @@ function resetOrderForm(){
 
 function populateOrderFormFields(o){
   document.getElementById('ord_orderNumber').value = o.orderNumber || '';
+  document.getElementById('ord_poNumber').value = o.poNumber || '';
   document.getElementById('ord_customerId').value = o.customerId || '';
   populateOpportunityForOrderSelect(o.customerId || '');
   document.getElementById('ord_opportunityId').value = o.opportunityId || '';
@@ -2430,7 +2528,7 @@ function populateOrderFormFields(o){
   document.getElementById('ord_requestedDeliveryDate').value = o.requestedDeliveryDate || '';
   document.getElementById('ord_etdDate').value = o.etdDate || '';
   document.getElementById('ord_actualShipDate').value = o.actualShipDate || '';
-  document.getElementById('ord_progressStatus').value = o.progressStatus || '';
+  renderOrderProgressChecklist(o.orderType || '', o.progressSteps || {});
   document.getElementById('ord_productionUpdate').value = o.productionUpdate || '';
   document.getElementById('ord_inspectionResult').value = o.inspectionResult || '';
   document.getElementById('ord_actualFinalDate').value = o.actualFinalDate || '';
@@ -2532,6 +2630,7 @@ async function saveOrder(e){
   const now = new Date().toISOString();
   const formData = {
     orderNumber: document.getElementById('ord_orderNumber').value.trim(),
+    poNumber: document.getElementById('ord_poNumber').value.trim(),
     customerId,
     opportunityId: document.getElementById('ord_opportunityId').value,
     personInCharge: (document.getElementById('ord_personInCharge').value === '__other__')
@@ -2546,7 +2645,7 @@ async function saveOrder(e){
     requestedDeliveryDate: document.getElementById('ord_requestedDeliveryDate').value,
     etdDate: document.getElementById('ord_etdDate').value,
     actualShipDate: document.getElementById('ord_actualShipDate').value,
-    progressStatus: document.getElementById('ord_progressStatus').value,
+    progressSteps: getSelectedProgressSteps(),
     productionUpdate: document.getElementById('ord_productionUpdate').value.trim(),
     inspectionResult: document.getElementById('ord_inspectionResult').value,
     actualFinalDate: document.getElementById('ord_actualFinalDate').value,
@@ -2574,6 +2673,7 @@ async function saveOrder(e){
 
 const ORDER_EXPORT_COLUMNS = [
   {header:'Số HĐ', width:12},
+  {header:'PO No.', width:14},
   {header:'Khách hàng / Công ty', width:24},
   {header:'Mã KH', width:10},
   {header:'Loại hàng', width:20},
@@ -2584,7 +2684,9 @@ const ORDER_EXPORT_COLUMNS = [
   {header:'Ngày yêu cầu giao', width:14},
   {header:'Cancel date / ETD', width:14},
   {header:'Ngày đóng hàng thực tế', width:16},
-  {header:'Tiến độ đơn hàng', width:15},
+  {header:'Tiến độ (%)', width:12},
+  {header:'Trạng thái tiến độ', width:15},
+  {header:'Bước tiếp theo', width:28},
   {header:'Cập nhật tình hình SX', width:28},
   {header:'Số đơn mẫu', width:14},
   {header:'Kết quả kiểm hàng', width:14},
@@ -2617,11 +2719,12 @@ async function exportOrdersXlsx(){
   list.forEach((o, idx) => {
     const c = customerById(o.customerId) || {};
     const cats = (o.productCategories && o.productCategories.length) ? o.productCategories.join(', ') : '';
+    const prog = getOrderProgressInfo(o);
     const row = ws.getRow(2 + idx);
     row.values = [
-      o.orderNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderType || '', SALES_GROUP_LABELS[o.salesGroup] || '', o.orderValue || '',
+      o.orderNumber || '', o.poNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderType || '', SALES_GROUP_LABELS[o.salesGroup] || '', o.orderValue || '',
       formatDateOnly(o.deployDate) || '', formatDateOnly(o.requestedDeliveryDate) || '', formatDateOnly(o.etdDate) || '',
-      formatDateOnly(o.actualShipDate) || '', o.progressStatus || '', o.productionUpdate || '',
+      formatDateOnly(o.actualShipDate) || '', prog.percent, prog.statusLabel, (prog.nextStep ? prog.nextStep.label : ''), o.productionUpdate || '',
       o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.actualFinalDate) || '',
       o.delayFailReason || '', o.actualLossCost || '', o.lifecycleStatus || '', o.personInCharge || '', o.notes || '',
     ];
@@ -2811,6 +2914,9 @@ function bindEvents(){
   document.getElementById('ord_customerId').addEventListener('change', e => {
     document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(e.target.value));
     populateOpportunityForOrderSelect(e.target.value);
+  });
+  document.getElementById('ord_orderType').addEventListener('change', e => {
+    renderOrderProgressChecklist(e.target.value, getSelectedProgressSteps());
   });
   document.getElementById('ord_personInCharge').addEventListener('change', e => {
     const otherInput = document.getElementById('ord_personInChargeOther');
