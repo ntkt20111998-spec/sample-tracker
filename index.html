@@ -699,7 +699,8 @@
         </div>
         <div>
           <label>Tình trạng</label>
-          <select id="ord_lifecycleStatus"><option value="">— Chọn —</option></select>
+          <select id="ord_lifecycleStatus" disabled><option value="">— Chọn —</option></select>
+          <div class="field-hint">Tự động cập nhật theo Tiến độ đơn hàng</div>
         </div>
         <div class="full">
           <label>Ghi chú</label>
@@ -815,7 +816,7 @@ const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
 /* ================= DANH MỤC: ĐƠN HÀNG ================= */
 const ORDER_PROGRESS_STATUSES = ['Đã triển khai','Đang triển khai','Trễ tiến độ'];
 const ORDER_INSPECTION_RESULTS = ['Pass','Fail','Pending'];
-const ORDER_LIFECYCLE_STATUSES = ['Pending','Done'];
+const ORDER_LIFECYCLE_STATUSES = ['Đang thực hiện','Trễ tiến độ','Đã hoàn thành'];
 const ORDER_TYPES = ['Newness','Repeat'];
 const SALES_GROUPS = ['1','2','3','4'];
 const SALES_GROUP_LABELS = {
@@ -911,9 +912,24 @@ function inspectionResultBadgeClass(s){
   return 'inspect-none';
 }
 function orderLifecycleBadgeClass(s){
-  if(s === 'Done') return 'lifecycle-done';
-  if(s === 'Pending') return 'lifecycle-pending';
+  if(s === 'Đã hoàn thành') return 'order-trienkhai';
+  if(s === 'Đang thực hiện') return 'order-dangtrienkhai';
+  if(s === 'Trễ tiến độ') return 'order-tre';
   return 'order-none';
+}
+function computeOrderLifecycleStatus(orderType, progressSteps, requestedDeliveryDate){
+  const prog = getOrderProgressInfo({orderType, progressSteps, requestedDeliveryDate});
+  if(prog.isComplete) return 'Đã hoàn thành';
+  if(prog.isOverdue) return 'Trễ tiến độ';
+  return 'Đang thực hiện';
+}
+function refreshLifecycleStatusField(){
+  const el = document.getElementById('ord_lifecycleStatus');
+  if(!el) return;
+  const orderType = document.getElementById('ord_orderType').value;
+  const steps = getSelectedProgressSteps();
+  const reqDate = document.getElementById('ord_requestedDeliveryDate').value;
+  el.value = computeOrderLifecycleStatus(orderType, steps, reqDate);
 }
 function winLossReasonList(status){ return status === 'Thắng đơn' ? WIN_REASONS : LOSS_REASONS; }
 function updateWinLossReasonOptions(status){ fillSelect('o_winLossReason', winLossReasonList(status), '— Chọn —'); }
@@ -2264,7 +2280,6 @@ const ORDER_TABLE_COLUMNS = [
   {field:'progress', label:'Tiến độ'},
   {field:'sampleOrderNumbers', label:'Số đơn mẫu'},
   {field:'inspectionResult', label:'Kết quả kiểm hàng'},
-  {field:'lifecycleStatus', label:'Tình trạng'},
   {field:'personInCharge', label:'Phụ trách'},
 ];
 
@@ -2298,7 +2313,6 @@ function renderOrdersTable(){
         </td>
         <td>${escapeHtml(o.sampleOrderNumbers || '—')}</td>
         <td><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
-        <td><span class="badge ${orderLifecycleBadgeClass(o.lifecycleStatus)}">${escapeHtml(o.lifecycleStatus || '—')}</span></td>
         <td>${escapeHtml(o.personInCharge || '—')}</td>
         <td>
           <div class="row-actions">
@@ -2480,9 +2494,10 @@ function renderOrdersDashboard(){
 function resetOrderForm(){
   ['ord_orderNumber','ord_poNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
   ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
-  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_lifecycleStatus','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
+  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
   setSelectedProductCategories([], 'ord_productCategories');
   renderOrderProgressChecklist('', {});
+  refreshLifecycleStatusField();
   document.getElementById('ord_personInChargeOther').style.display = 'none';
   document.getElementById('ord_personInChargeOther').value = '';
   document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(null);
@@ -2534,7 +2549,7 @@ function populateOrderFormFields(o){
   document.getElementById('ord_actualFinalDate').value = o.actualFinalDate || '';
   document.getElementById('ord_delayFailReason').value = o.delayFailReason || '';
   document.getElementById('ord_actualLossCost').value = o.actualLossCost || '';
-  document.getElementById('ord_lifecycleStatus').value = o.lifecycleStatus || '';
+  refreshLifecycleStatusField();
   document.getElementById('ord_notes').value = o.notes || '';
   document.getElementById('ordCustomerInfo').innerHTML = buildCustomerInfoBox(customerById(o.customerId));
 }
@@ -2604,6 +2619,7 @@ function setOrderViewMode(isView){
   orderViewMode = isView;
   const form = document.getElementById('orderForm');
   form.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = isView; });
+  document.getElementById('ord_lifecycleStatus').disabled = true;
   document.getElementById('ordNewCustomerBtn').style.display = isView ? 'none' : '';
   document.getElementById('ordDeleteBtn').style.display = (!isView && editingOrderId) ? 'inline-block' : 'none';
   document.getElementById('ordEditFromViewBtn').style.display = isView ? 'inline-block' : 'none';
@@ -2651,9 +2667,9 @@ async function saveOrder(e){
     actualFinalDate: document.getElementById('ord_actualFinalDate').value,
     delayFailReason: document.getElementById('ord_delayFailReason').value.trim(),
     actualLossCost: document.getElementById('ord_actualLossCost').value ? Number(document.getElementById('ord_actualLossCost').value) : null,
-    lifecycleStatus: document.getElementById('ord_lifecycleStatus').value,
     notes: document.getElementById('ord_notes').value.trim(),
   };
+  formData.lifecycleStatus = computeOrderLifecycleStatus(formData.orderType, formData.progressSteps, formData.requestedDeliveryDate);
   try{
     if(editingOrderId){
       const existing = orderById(editingOrderId);
@@ -2917,7 +2933,12 @@ function bindEvents(){
   });
   document.getElementById('ord_orderType').addEventListener('change', e => {
     renderOrderProgressChecklist(e.target.value, getSelectedProgressSteps());
+    refreshLifecycleStatusField();
   });
+  document.getElementById('ord_progressChecklist').addEventListener('change', e => {
+    if(e.target && e.target.matches('input[data-step]')) refreshLifecycleStatusField();
+  });
+  document.getElementById('ord_requestedDeliveryDate').addEventListener('change', refreshLifecycleStatusField);
   document.getElementById('ord_personInCharge').addEventListener('change', e => {
     const otherInput = document.getElementById('ord_personInChargeOther');
     if(e.target.value === '__other__'){
