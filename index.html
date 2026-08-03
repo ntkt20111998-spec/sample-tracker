@@ -673,6 +673,10 @@
           <label>Ngày đóng hàng thực tế</label>
           <input type="date" id="ord_actualShipDate">
         </div>
+        <div>
+          <label>LCL/FCL</label>
+          <select id="ord_lclFcl"><option value="">— Chọn —</option></select>
+        </div>
         <div class="full">
           <label>Tiến độ đơn hàng</label>
           <div class="checklist" id="ord_progressChecklist"></div>
@@ -684,6 +688,10 @@
         <div>
           <label>Kết quả kiểm hàng</label>
           <select id="ord_inspectionResult"><option value="">— Chọn —</option></select>
+        </div>
+        <div>
+          <label>Ngày final (SX xác nhận)</label>
+          <input type="date" id="ord_plannedFinalDate">
         </div>
         <div>
           <label>Ngày final thực tế</label>
@@ -817,6 +825,7 @@ const OPP_CLOSED_STATUSES = ['Thắng đơn','Không thành công'];
 const ORDER_PROGRESS_STATUSES = ['Đã triển khai','Đang triển khai','Trễ tiến độ'];
 const ORDER_INSPECTION_RESULTS = ['Pass','Fail','Pending'];
 const ORDER_LIFECYCLE_STATUSES = ['Đang thực hiện','Trễ tiến độ','Đã hoàn thành'];
+const ORDER_LCL_FCL_OPTIONS = ['LCL','FCL'];
 const ORDER_TYPES = ['Newness','Repeat'];
 const SALES_GROUPS = ['1','2','3','4'];
 const SALES_GROUP_LABELS = {
@@ -1125,6 +1134,7 @@ function initStaticDropdowns(){
   fillSelect('custFilterAccountSize', ACCOUNT_SIZES, 'Tất cả quy mô tài khoản');
 
   fillSelect('ord_inspectionResult', ORDER_INSPECTION_RESULTS, '— Chọn —');
+  fillSelect('ord_lclFcl', ORDER_LCL_FCL_OPTIONS, '— Chọn —');
   fillSelect('ord_lifecycleStatus', ORDER_LIFECYCLE_STATUSES, '— Chọn —');
   fillSelect('ord_orderType', ORDER_TYPES, '— Chọn —');
   populateSalesGroupSelect('ord_salesGroup');
@@ -2276,6 +2286,7 @@ const ORDER_TABLE_COLUMNS = [
   {field:'orderValue', label:'Trị giá'},
   {field:'deployDate', label:'Ngày triển khai'},
   {field:'requestedDeliveryDate', label:'Ngày YC giao'},
+  {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)'},
   {field:'actualFinalDate', label:'Ngày final thực tế'},
   {field:'progress', label:'Tiến độ'},
   {field:'sampleOrderNumbers', label:'Số đơn mẫu'},
@@ -2306,6 +2317,7 @@ function renderOrdersTable(){
         <td>${o.orderValue ? '$'+Number(o.orderValue).toLocaleString('en-US') : '—'}</td>
         <td>${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
         <td>${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
+        <td>${escapeHtml(formatDateOnly(o.plannedFinalDate) || '—')}</td>
         <td>${escapeHtml(formatDateOnly(o.actualFinalDate) || '—')}</td>
         <td>
           <span class="badge ${orderProgressBadgeClass(prog.statusLabel)}">${escapeHtml(prog.statusLabel)}</span>
@@ -2405,9 +2417,11 @@ function renderOrdersDashboard(){
   // ---- Nhóm: xu hướng theo tháng (triển khai vs xuất hàng) ----
   const deployMap = buildMonthlyValueSeries(list, 'deployDate');
   const shipMap = buildMonthlyValueSeries(list, 'actualShipDate');
-  const allMonths = [...new Set([...deployMap.keys(), ...shipMap.keys()])].sort();
+  const requestedMap = buildMonthlyValueSeries(list, 'requestedDeliveryDate');
+  const allMonths = [...new Set([...deployMap.keys(), ...shipMap.keys(), ...requestedMap.keys()])].sort();
   const deploySeries = allMonths.map(k => deployMap.get(k) || 0);
   const shipSeries = allMonths.map(k => shipMap.get(k) || 0);
+  const requestedSeries = allMonths.map(k => requestedMap.get(k) || 0);
 
   // ---- Nhóm: theo khách hàng ----
   const byCustomerMap = new Map();
@@ -2481,6 +2495,7 @@ function renderOrdersDashboard(){
       labels: allMonths.map(monthLabel),
       datasets: [
         {label:'Triển khai (gửi xưởng)', data: deploySeries, backgroundColor:'#3D6B8C'},
+        {label:'Yêu cầu giao hàng', data: requestedSeries, backgroundColor:'#B8862E'},
         {label:'Xuất hàng thực tế', data: shipSeries, backgroundColor:'#6B7B5E'},
       ]
     },
@@ -2493,8 +2508,8 @@ function renderOrdersDashboard(){
 
 function resetOrderForm(){
   ['ord_orderNumber','ord_poNumber','ord_sampleOrderNumbers','ord_orderValue','ord_actualLossCost','ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => document.getElementById(id).value = '');
-  ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
-  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_orderType','ord_salesGroup'].forEach(id => document.getElementById(id).value = '');
+  ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_plannedFinalDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
+  ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_orderType','ord_salesGroup','ord_lclFcl'].forEach(id => document.getElementById(id).value = '');
   setSelectedProductCategories([], 'ord_productCategories');
   renderOrderProgressChecklist('', {});
   refreshLifecycleStatusField();
@@ -2543,9 +2558,11 @@ function populateOrderFormFields(o){
   document.getElementById('ord_requestedDeliveryDate').value = o.requestedDeliveryDate || '';
   document.getElementById('ord_etdDate').value = o.etdDate || '';
   document.getElementById('ord_actualShipDate').value = o.actualShipDate || '';
+  document.getElementById('ord_lclFcl').value = o.lclFcl || '';
   renderOrderProgressChecklist(o.orderType || '', o.progressSteps || {});
   document.getElementById('ord_productionUpdate').value = o.productionUpdate || '';
   document.getElementById('ord_inspectionResult').value = o.inspectionResult || '';
+  document.getElementById('ord_plannedFinalDate').value = o.plannedFinalDate || '';
   document.getElementById('ord_actualFinalDate').value = o.actualFinalDate || '';
   document.getElementById('ord_delayFailReason').value = o.delayFailReason || '';
   document.getElementById('ord_actualLossCost').value = o.actualLossCost || '';
@@ -2661,9 +2678,11 @@ async function saveOrder(e){
     requestedDeliveryDate: document.getElementById('ord_requestedDeliveryDate').value,
     etdDate: document.getElementById('ord_etdDate').value,
     actualShipDate: document.getElementById('ord_actualShipDate').value,
+    lclFcl: document.getElementById('ord_lclFcl').value,
     progressSteps: getSelectedProgressSteps(),
     productionUpdate: document.getElementById('ord_productionUpdate').value.trim(),
     inspectionResult: document.getElementById('ord_inspectionResult').value,
+    plannedFinalDate: document.getElementById('ord_plannedFinalDate').value,
     actualFinalDate: document.getElementById('ord_actualFinalDate').value,
     delayFailReason: document.getElementById('ord_delayFailReason').value.trim(),
     actualLossCost: document.getElementById('ord_actualLossCost').value ? Number(document.getElementById('ord_actualLossCost').value) : null,
@@ -2700,12 +2719,14 @@ const ORDER_EXPORT_COLUMNS = [
   {header:'Ngày yêu cầu giao', width:14},
   {header:'Cancel date / ETD', width:14},
   {header:'Ngày đóng hàng thực tế', width:16},
+  {header:'LCL/FCL', width:10},
   {header:'Tiến độ (%)', width:12},
   {header:'Trạng thái tiến độ', width:15},
   {header:'Bước tiếp theo', width:28},
   {header:'Cập nhật tình hình SX', width:28},
   {header:'Số đơn mẫu', width:14},
   {header:'Kết quả kiểm hàng', width:14},
+  {header:'Ngày final (SX xác nhận)', width:16},
   {header:'Ngày final thực tế', width:14},
   {header:'Nguyên nhân trễ/fail', width:26},
   {header:'Phí tổn thực tế ($)', width:14},
@@ -2740,8 +2761,8 @@ async function exportOrdersXlsx(){
     row.values = [
       o.orderNumber || '', o.poNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderType || '', SALES_GROUP_LABELS[o.salesGroup] || '', o.orderValue || '',
       formatDateOnly(o.deployDate) || '', formatDateOnly(o.requestedDeliveryDate) || '', formatDateOnly(o.etdDate) || '',
-      formatDateOnly(o.actualShipDate) || '', prog.percent, prog.statusLabel, (prog.nextStep ? prog.nextStep.label : ''), o.productionUpdate || '',
-      o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.actualFinalDate) || '',
+      formatDateOnly(o.actualShipDate) || '', o.lclFcl || '', prog.percent, prog.statusLabel, (prog.nextStep ? prog.nextStep.label : ''), o.productionUpdate || '',
+      o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.plannedFinalDate) || '', formatDateOnly(o.actualFinalDate) || '',
       o.delayFailReason || '', o.actualLossCost || '', o.lifecycleStatus || '', o.personInCharge || '', o.notes || '',
     ];
     row.eachCell({includeEmpty:true}, cell => {
