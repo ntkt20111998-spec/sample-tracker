@@ -690,6 +690,10 @@
           <select id="ord_inspectionResult"><option value="">— Chọn —</option></select>
         </div>
         <div>
+          <label>Xưởng kiểm hàng</label>
+          <div class="checkbox-tags" id="ord_inspectionFactories"></div>
+        </div>
+        <div>
           <label>Ngày final (SX xác nhận)</label>
           <input type="date" id="ord_plannedFinalDate">
         </div>
@@ -826,6 +830,7 @@ const ORDER_PROGRESS_STATUSES = ['Đã triển khai','Đang triển khai','Trễ
 const ORDER_INSPECTION_RESULTS = ['Pass','Fail','Pending'];
 const ORDER_LIFECYCLE_STATUSES = ['Đang thực hiện','Trễ tiến độ','Đã hoàn thành'];
 const ORDER_LCL_FCL_OPTIONS = ['LCL','FCL'];
+const ORDER_INSPECTION_FACTORIES = ['Củ Chi CD8','Củ Chi CD9','Hóc Môn CD10'];
 const ORDER_TYPES = ['Newness','Repeat'];
 const SALES_GROUPS = ['1','2','3','4'];
 const SALES_GROUP_LABELS = {
@@ -1135,6 +1140,7 @@ function initStaticDropdowns(){
 
   fillSelect('ord_inspectionResult', ORDER_INSPECTION_RESULTS, '— Chọn —');
   fillSelect('ord_lclFcl', ORDER_LCL_FCL_OPTIONS, '— Chọn —');
+  populateInspectionFactoriesCheckboxes();
   fillSelect('ord_lifecycleStatus', ORDER_LIFECYCLE_STATUSES, '— Chọn —');
   fillSelect('ord_orderType', ORDER_TYPES, '— Chọn —');
   populateSalesGroupSelect('ord_salesGroup');
@@ -1194,6 +1200,18 @@ function setSelectedProductCategories(cats, targetId){
   targetId = targetId || 'o_productCategories';
   const set = new Set(cats || []);
   document.querySelectorAll('#'+targetId+' input[type=checkbox]').forEach(cb => { cb.checked = set.has(cb.value); });
+}
+function populateInspectionFactoriesCheckboxes(){
+  const wrap = document.getElementById('ord_inspectionFactories');
+  if(!wrap) return;
+  wrap.innerHTML = ORDER_INSPECTION_FACTORIES.map(v => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`).join('');
+}
+function getSelectedInspectionFactories(){
+  return Array.from(document.querySelectorAll('#ord_inspectionFactories input[type=checkbox]:checked')).map(cb => cb.value);
+}
+function setSelectedInspectionFactories(list){
+  const set = new Set(list || []);
+  document.querySelectorAll('#ord_inspectionFactories input[type=checkbox]').forEach(cb => { cb.checked = set.has(cb.value); });
 }
 function populatePersonInChargeSelect(targetId){
   targetId = targetId || 'o_personInCharge';
@@ -2511,6 +2529,7 @@ function resetOrderForm(){
   ['ord_deployDate','ord_requestedDeliveryDate','ord_etdDate','ord_actualShipDate','ord_plannedFinalDate','ord_actualFinalDate'].forEach(id => document.getElementById(id).value = '');
   ['ord_customerId','ord_opportunityId','ord_personInCharge','ord_inspectionResult','ord_orderType','ord_salesGroup','ord_lclFcl'].forEach(id => document.getElementById(id).value = '');
   setSelectedProductCategories([], 'ord_productCategories');
+  setSelectedInspectionFactories([]);
   renderOrderProgressChecklist('', {});
   refreshLifecycleStatusField();
   document.getElementById('ord_personInChargeOther').style.display = 'none';
@@ -2562,6 +2581,7 @@ function populateOrderFormFields(o){
   renderOrderProgressChecklist(o.orderType || '', o.progressSteps || {});
   document.getElementById('ord_productionUpdate').value = o.productionUpdate || '';
   document.getElementById('ord_inspectionResult').value = o.inspectionResult || '';
+  setSelectedInspectionFactories(o.inspectionFactories || []);
   document.getElementById('ord_plannedFinalDate').value = o.plannedFinalDate || '';
   document.getElementById('ord_actualFinalDate').value = o.actualFinalDate || '';
   document.getElementById('ord_delayFailReason').value = o.delayFailReason || '';
@@ -2682,6 +2702,7 @@ async function saveOrder(e){
     progressSteps: getSelectedProgressSteps(),
     productionUpdate: document.getElementById('ord_productionUpdate').value.trim(),
     inspectionResult: document.getElementById('ord_inspectionResult').value,
+    inspectionFactories: getSelectedInspectionFactories(),
     plannedFinalDate: document.getElementById('ord_plannedFinalDate').value,
     actualFinalDate: document.getElementById('ord_actualFinalDate').value,
     delayFailReason: document.getElementById('ord_delayFailReason').value.trim(),
@@ -2726,6 +2747,7 @@ const ORDER_EXPORT_COLUMNS = [
   {header:'Cập nhật tình hình SX', width:28},
   {header:'Số đơn mẫu', width:14},
   {header:'Kết quả kiểm hàng', width:14},
+  {header:'Xưởng kiểm hàng', width:24},
   {header:'Ngày final (SX xác nhận)', width:16},
   {header:'Ngày final thực tế', width:14},
   {header:'Nguyên nhân trễ/fail', width:26},
@@ -2762,7 +2784,8 @@ async function exportOrdersXlsx(){
       o.orderNumber || '', o.poNumber || '', c.companyName || '', c.customerCode || '', cats, o.orderType || '', SALES_GROUP_LABELS[o.salesGroup] || '', o.orderValue || '',
       formatDateOnly(o.deployDate) || '', formatDateOnly(o.requestedDeliveryDate) || '', formatDateOnly(o.etdDate) || '',
       formatDateOnly(o.actualShipDate) || '', o.lclFcl || '', prog.percent, prog.statusLabel, (prog.nextStep ? prog.nextStep.label : ''), o.productionUpdate || '',
-      o.sampleOrderNumbers || '', o.inspectionResult || '', formatDateOnly(o.plannedFinalDate) || '', formatDateOnly(o.actualFinalDate) || '',
+      o.sampleOrderNumbers || '', o.inspectionResult || '', (o.inspectionFactories && o.inspectionFactories.length) ? o.inspectionFactories.join(', ') : '',
+      formatDateOnly(o.plannedFinalDate) || '', formatDateOnly(o.actualFinalDate) || '',
       o.delayFailReason || '', o.actualLossCost || '', o.lifecycleStatus || '', o.personInCharge || '', o.notes || '',
     ];
     row.eachCell({includeEmpty:true}, cell => {
