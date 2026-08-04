@@ -2303,10 +2303,10 @@ function renderOrderStats(){
 const ORDER_TABLE_COLUMNS = [
   {field:'orderNumber', label:'Số HĐ', width:6},
   {field:'poNumber', label:'PO No.', width:6},
-  {field:'customer', label:'Khách hàng', width:10},
+  {field:'customer', label:'Khách hàng', width:7},
   {field:'productCategories', label:'Loại hàng', width:9},
   {field:'orderType', label:'Loại đơn hàng', width:5},
-  {field:'orderValue', label:'Trị giá', width:6},
+  {field:'orderValue', label:'Trị giá', width:5},
   {field:'deployDate', label:'Ngày triển khai', width:7, narrow:true},
   {field:'requestedDeliveryDate', label:'Ngày YC giao', width:7, narrow:true},
   {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)', width:8, narrow:true},
@@ -2364,7 +2364,7 @@ function renderOrdersTable(){
   }).join('');
   container.innerHTML = `
     <table class="order-table">
-      <thead><tr>${headerCells}<th style="width:5%;"></th></tr></thead>
+      <thead><tr>${headerCells}<th style="width:9%;"></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
   container.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', () => setOrderSort(th.dataset.field)));
