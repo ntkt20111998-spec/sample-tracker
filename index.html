@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+h<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -788,6 +788,53 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const AUTH_EMAIL = 'team@catdang-sample-tracker.app';
+/* === WSI SYNC === */
+const _WSICFG={apiKey:"AIzaSyDSLj0kYk5BAhOj6wIlcGK7UC2jVOU4Tio",authDomain:"catdang-wsi-tracker.firebaseapp.com",projectId:"catdang-wsi-tracker",storageBucket:"catdang-wsi-tracker.firebasestorage.app",messagingSenderId:"1014249144543",appId:"1:1014249144543:web:15cd8c192819663404296a"};
+let _wsiDb=null;
+try{const _wsiApp=firebase.apps.find(x=>x.name==='wsi')||firebase.initializeApp(_WSICFG,'wsi');_wsiDb=firebase.firestore(_wsiApp);}catch(e){}
+async function _syncOrderToWSI(order){
+  if(!_wsiDb||!order||!order.id)return;
+  if(localStorage.getItem('wsi_sync_'+order.id))return;
+  const _c=customers.find(x=>x.id===order.customerId);
+  try{
+    await _wsiDb.collection('inspections').doc('sync-'+order.id).set({
+      id:'sync-'+order.id,soPO:order.poNumber||order.orderNumber||'',
+      soHD:order.orderNumber||'',brand:_c?_c.companyName:'',
+      lclFcl:order.lclFcl||'',ngayRaHang:order.etdDate||'',
+      ngayFinalSX:order.plannedFinalDate||'',ngayFinalThucTe:'',
+      ngayInline:'',xuong:'',wsi:'',daKiem:'',ketQua:'',ghiChu:'',
+      createdAt:new Date().toISOString(),createdBy:'sync:sample-tracker',
+      _syncSource:'sample-tracker',_syncOrderId:order.id
+    });
+    localStorage.setItem('wsi_sync_'+order.id,'1');
+    showToast('✓ Đã đồng bộ line kiểm hàng');
+  }catch(e){console.error('[WSI]',e.message);}
+}
+async function _backfillWSI(){
+  if(!_wsiDb){showToast('Chưa kết nối WSI');return;}
+  showToast('Đang đồng bộ...');
+  try{
+    const snap=await ordersCollection().get();
+    let n=0;
+    for(const d of snap.docs){
+      const o={...d.data(),id:d.id};
+      if(!localStorage.getItem('wsi_sync_'+d.id)){
+        await _syncOrderToWSI(o);
+        n++;
+        await new Promise(r=>setTimeout(r,300));
+      }
+    }
+    showToast('✓ Đã sync '+n+' đơn hàng sang kiểm hàng');
+  }catch(e){showToast('Lỗi: '+e.message);}
+}
+setTimeout(function(){
+  const b=document.createElement('button');
+  b.innerHTML='⟳ Sync kiểm hàng';
+  b.style='position:fixed;bottom:24px;right:24px;z-index:9999;background:#2563eb;color:#fff;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;box-shadow:0 2px 12px rgba(37,99,235,.4);';
+  b.onclick=_backfillWSI;
+  document.body.appendChild(b);
+},2000);
+/* === END WSI SYNC === */
 const CUSTOMERS_COL = 'customers';
 const OPPORTUNITIES_COL = 'opportunities';
 const ORDERS_COL = 'orders';
@@ -1000,7 +1047,7 @@ function attachOpportunitiesListener(){
 }
 
 /* ---- Orders ---- */
-async function saveOrderDoc(id, data){ await ordersCollection().doc(id).set(data); }
+async function saveOrderDoc(id,data){await ordersCollection().doc(id).set(data);_syncOrderToWSI({...data,id});}
 async function deleteOrderDoc(id){ await ordersCollection().doc(id).delete(); }
 let unsubscribeOrders = null;
 function attachOrdersListener(){
