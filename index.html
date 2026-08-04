@@ -129,10 +129,10 @@
   tbody td{padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle; word-break:break-word;}
   tbody tr:hover{background:#FDFBF7;}
   table.order-table{table-layout:fixed;}
-  table.order-table th, table.order-table td{padding:8px 8px; font-size:12.5px;}
+  table.order-table th, table.order-table td{padding:8px 5px; font-size:12.5px;}
   table.order-table th{font-size:9.5px;}
   table.order-table th.sortable{white-space:normal; line-height:1.3; vertical-align:bottom;}
-  table.order-table td.cell-narrow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-left:6px; padding-right:6px;}
+  table.order-table td.cell-narrow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-left:3px; padding-right:3px;}
   tbody tr.overdue-row{background:var(--rust-soft);}
   .thumb{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer;}
   .thumb:hover{border-color:var(--accent);}
@@ -2303,17 +2303,16 @@ function renderOrderStats(){
 const ORDER_TABLE_COLUMNS = [
   {field:'orderNumber', label:'Số HĐ', width:6},
   {field:'poNumber', label:'PO No.', width:6},
-  {field:'customer', label:'Khách hàng', width:8},
-  {field:'productCategories', label:'Loại hàng', width:8},
+  {field:'customer', label:'Khách hàng', width:10},
+  {field:'productCategories', label:'Loại hàng', width:9},
   {field:'orderType', label:'Loại đơn hàng', width:5},
-  {field:'orderValue', label:'Trị giá', width:5},
+  {field:'orderValue', label:'Trị giá', width:6},
   {field:'deployDate', label:'Ngày triển khai', width:7, narrow:true},
   {field:'requestedDeliveryDate', label:'Ngày YC giao', width:7, narrow:true},
-  {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)', width:7, narrow:true},
+  {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)', width:8, narrow:true},
   {field:'actualFinalDate', label:'Ngày final thực tế', width:7, narrow:true},
-  {field:'progress', label:'Tiến độ', width:10},
+  {field:'progress', label:'Tiến độ', width:12},
   {field:'sampleOrderNumbers', label:'Số đơn mẫu', width:6, narrow:true},
-  {field:'inspectionResult', label:'Kết quả kiểm hàng', width:7, narrow:true},
   {field:'personInCharge', label:'Phụ trách', width:6},
 ];
 
@@ -2347,7 +2346,6 @@ function renderOrdersTable(){
           <div class="progress-sub">${prog.percent}%${prog.nextStep ? ' — ' + escapeHtml(prog.nextStep.label) : ''}</div>
         </td>
         <td class="cell-narrow">${escapeHtml(o.sampleOrderNumbers || '—')}</td>
-        <td class="cell-narrow"><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
         <td>${escapeHtml(o.personInCharge || '—')}</td>
         <td>
           <div class="row-actions">
