@@ -126,8 +126,11 @@
     text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em;
     color:var(--ink-soft); padding:10px 12px; border-bottom:1px solid var(--line); background:#FCFAF6;
   }
-  tbody td{padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle;}
+  tbody td{padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle; word-break:break-word;}
   tbody tr:hover{background:#FDFBF7;}
+  table.order-table{table-layout:fixed;}
+  table.order-table th, table.order-table td{padding:8px 8px; font-size:12.5px;}
+  table.order-table td.cell-narrow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   tbody tr.overdue-row{background:var(--rust-soft);}
   .thumb{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid var(--line); background:#f2ede4; cursor:pointer;}
   .thumb:hover{border-color:var(--accent);}
@@ -2296,20 +2299,20 @@ function renderOrderStats(){
 }
 
 const ORDER_TABLE_COLUMNS = [
-  {field:'orderNumber', label:'Số HĐ'},
-  {field:'poNumber', label:'PO No.'},
-  {field:'customer', label:'Khách hàng'},
-  {field:'productCategories', label:'Loại hàng'},
-  {field:'orderType', label:'Loại đơn hàng'},
-  {field:'orderValue', label:'Trị giá'},
-  {field:'deployDate', label:'Ngày triển khai'},
-  {field:'requestedDeliveryDate', label:'Ngày YC giao'},
-  {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)'},
-  {field:'actualFinalDate', label:'Ngày final thực tế'},
-  {field:'progress', label:'Tiến độ'},
-  {field:'sampleOrderNumbers', label:'Số đơn mẫu'},
-  {field:'inspectionResult', label:'Kết quả kiểm hàng'},
-  {field:'personInCharge', label:'Phụ trách'},
+  {field:'orderNumber', label:'Số HĐ', width:6},
+  {field:'poNumber', label:'PO No.', width:6},
+  {field:'customer', label:'Khách hàng', width:10},
+  {field:'productCategories', label:'Loại hàng', width:9},
+  {field:'orderType', label:'Loại đơn hàng', width:6},
+  {field:'orderValue', label:'Trị giá', width:6},
+  {field:'deployDate', label:'Ngày triển khai', width:6, narrow:true},
+  {field:'requestedDeliveryDate', label:'Ngày YC giao', width:6, narrow:true},
+  {field:'plannedFinalDate', label:'Ngày final (SX xác nhận)', width:6, narrow:true},
+  {field:'actualFinalDate', label:'Ngày final thực tế', width:6, narrow:true},
+  {field:'progress', label:'Tiến độ', width:12},
+  {field:'sampleOrderNumbers', label:'Số đơn mẫu', width:5, narrow:true},
+  {field:'inspectionResult', label:'Kết quả kiểm hàng', width:5, narrow:true},
+  {field:'personInCharge', label:'Phụ trách', width:6},
 ];
 
 function renderOrdersTable(){
@@ -2333,16 +2336,16 @@ function renderOrdersTable(){
         <td>${escapeHtml(cats)}</td>
         <td>${escapeHtml(o.orderType || '—')}</td>
         <td>${o.orderValue ? '$'+Number(o.orderValue).toLocaleString('en-US') : '—'}</td>
-        <td>${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
-        <td>${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
-        <td>${escapeHtml(formatDateOnly(o.plannedFinalDate) || '—')}</td>
-        <td>${escapeHtml(formatDateOnly(o.actualFinalDate) || '—')}</td>
+        <td class="cell-narrow">${escapeHtml(formatDateOnly(o.deployDate) || '—')}</td>
+        <td class="cell-narrow">${escapeHtml(formatDateOnly(o.requestedDeliveryDate) || '—')}</td>
+        <td class="cell-narrow">${escapeHtml(formatDateOnly(o.plannedFinalDate) || '—')}</td>
+        <td class="cell-narrow">${escapeHtml(formatDateOnly(o.actualFinalDate) || '—')}</td>
         <td>
           <span class="badge ${orderProgressBadgeClass(prog.statusLabel)}">${escapeHtml(prog.statusLabel)}</span>
           <div class="progress-sub">${prog.percent}%${prog.nextStep ? ' — ' + escapeHtml(prog.nextStep.label) : ''}</div>
         </td>
-        <td>${escapeHtml(o.sampleOrderNumbers || '—')}</td>
-        <td><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
+        <td class="cell-narrow">${escapeHtml(o.sampleOrderNumbers || '—')}</td>
+        <td class="cell-narrow"><span class="badge ${inspectionResultBadgeClass(o.inspectionResult)}">${escapeHtml(o.inspectionResult || '—')}</span></td>
         <td>${escapeHtml(o.personInCharge || '—')}</td>
         <td>
           <div class="row-actions">
@@ -2356,11 +2359,12 @@ function renderOrdersTable(){
   const headerCells = ORDER_TABLE_COLUMNS.map(col => {
     const isActive = orderSortField === col.field;
     const arrow = isActive ? (orderSortDir === 'asc' ? '▲' : '▼') : '▲▼';
-    return `<th class="sortable${isActive ? ' sort-active' : ''}" data-field="${col.field}">${escapeHtml(col.label)}<span class="sort-arrow">${arrow}</span></th>`;
+    const widthAttr = col.width ? ` style="width:${col.width}%;"` : '';
+    return `<th class="sortable${isActive ? ' sort-active' : ''}" data-field="${col.field}"${widthAttr}>${escapeHtml(col.label)}<span class="sort-arrow">${arrow}</span></th>`;
   }).join('');
   container.innerHTML = `
-    <table>
-      <thead><tr>${headerCells}<th></th></tr></thead>
+    <table class="order-table">
+      <thead><tr>${headerCells}<th style="width:5%;"></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
   container.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', () => setOrderSort(th.dataset.field)));
