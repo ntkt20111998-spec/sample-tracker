@@ -453,7 +453,7 @@
           <label>Vai trò khách hàng</label>
           <select id="c_role"><option value="">— Chọn —</option></select>
         </div>
-        <div>
+        <div class="full">
           <label>Quy mô tài khoản</label>
           <select id="c_accountSize"><option value="">— Chọn —</option></select>
         </div>
@@ -499,7 +499,7 @@
           <label>Ngày nhận</label>
           <input type="date" id="o_dateReceived">
         </div>
-        <div>
+        <div class="full">
           <label>Phân loại</label>
           <select id="o_classification"><option value="">— Chọn —</option></select>
         </div>
@@ -520,7 +520,7 @@
           <label>Ngành hàng sản phẩm</label>
           <div class="checkbox-tags" id="o_productCategories"></div>
         </div>
-        <div>
+        <div class="full">
           <label>Người phụ trách</label>
           <select id="o_personInCharge"><option value="">— Chọn —</option></select>
           <input type="text" id="o_personInChargeOther" placeholder="Nhập tên người phụ trách" style="display:none; margin-top:6px;">
@@ -546,11 +546,11 @@
           <label>Ưu tiên</label>
           <select id="o_priority"><option value="">— Chọn —</option></select>
         </div>
-        <div>
+        <div class="full">
           <label>Trạng thái</label>
           <select id="o_status"><option value="">— Chọn —</option></select>
         </div>
-        <div id="o_winLossWrap" style="display:none;">
+        <div class="full" id="o_winLossWrap" style="display:none;">
           <label>Lý do thắng/thua</label>
           <select id="o_winLossReason"><option value="">— Chọn —</option></select>
         </div>
@@ -558,7 +558,7 @@
           <label>Hành động tiếp theo</label>
           <input type="text" id="o_nextAction">
         </div>
-        <div>
+        <div class="full">
           <label>Ngày follow-up kế tiếp</label>
           <input type="date" id="o_nextFollowUp">
         </div>
@@ -630,7 +630,7 @@
           <label>Cơ hội gốc (nếu có)</label>
           <select id="ord_opportunityId"><option value="">— Không liên kết —</option></select>
         </div>
-        <div>
+        <div class="full">
           <label>Người phụ trách</label>
           <select id="ord_personInCharge"><option value="">— Chọn —</option></select>
           <input type="text" id="ord_personInChargeOther" placeholder="Nhập tên người phụ trách" style="display:none; margin-top:6px;">
@@ -685,11 +685,11 @@
           <label>Cập nhật tình hình SX (nếu có)</label>
           <textarea id="ord_productionUpdate"></textarea>
         </div>
-        <div>
+        <div class="full">
           <label>Kết quả kiểm hàng</label>
           <select id="ord_inspectionResult"><option value="">— Chọn —</option></select>
         </div>
-        <div>
+        <div class="full">
           <label>Xưởng kiểm hàng</label>
           <div class="checkbox-tags" id="ord_inspectionFactories"></div>
         </div>
@@ -783,29 +783,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const AUTH_EMAIL = 'team@catdang-sample-tracker.app';
-  
-/* === WSI SYNC === */
-const _WSICFG={apiKey:"AIzaSyDSLj0kYk5BAhOj6wIlcGK7UC2jVOU4Tio",authDomain:"catdang-wsi-tracker.firebaseapp.com",projectId:"catdang-wsi-tracker",storageBucket:"catdang-wsi-tracker.firebasestorage.app",messagingSenderId:"1014249144543",appId:"1:1014249144543:web:15cd8c192819663404296a"};
-let _wsiDb=null;
-try{const _a=firebase.apps.find(x=>x.name==='wsi')||firebase.initializeApp(_WSICFG,'wsi');_wsiDb=firebase.firestore(_a);}catch(e){}
-async function _syncOrderToWSI(order){
-  if(!_wsiDb||!order||!order.id||!order.poNumber)return;
-  if(localStorage.getItem('wsi_sync_'+order.id))return;
-  const _c=customers.find(x=>x.id===order.customerId);
-  try{
-    await _wsiDb.collection('inspections').doc('sync-'+order.id).set({
-      id:'sync-'+order.id,soPO:order.poNumber||'',brand:_c?_c.companyName:'',
-      lclFcl:order.lclFcl||'',ngayRaHang:order.etdDate||'',
-      ngayFinalSX:order.plannedFinalDate||'',ngayFinalThucTe:'',
-      ngayInline:'',xuong:'',wsi:'',daKiem:'',ketQua:'',ghiChu:'',
-      createdAt:new Date().toISOString(),createdBy:'sync:sample-tracker',
-      _syncSource:'sample-tracker',_syncOrderId:order.id
-    });
-    localStorage.setItem('wsi_sync_'+order.id,'1');
-    showToast('✓ Đã đồng bộ line kiểm hàng');
-  }catch(e){console.error('[WSI]',e.message);}
-}
-/* === END WSI SYNC === */
 const CUSTOMERS_COL = 'customers';
 const OPPORTUNITIES_COL = 'opportunities';
 const ORDERS_COL = 'orders';
@@ -1018,7 +995,7 @@ function attachOpportunitiesListener(){
 }
 
 /* ---- Orders ---- */
-async function saveOrderDoc(id,data){await ordersCollection().doc(id).set(data);if(data.createdAt&&data.updatedAt&&data.createdAt===data.updatedAt)_syncOrderToWSI(data);}
+async function saveOrderDoc(id, data){ await ordersCollection().doc(id).set(data); }
 async function deleteOrderDoc(id){ await ordersCollection().doc(id).delete(); }
 let unsubscribeOrders = null;
 function attachOrdersListener(){
