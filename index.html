@@ -417,6 +417,18 @@
     <select id="ordFilterOrderType"><option value="">Tất cả loại đơn hàng</option></select>
     <select id="ordFilterCustomer"><option value="">Tất cả khách hàng</option></select>
     <select id="ordFilterPerson"><option value="">Tất cả người phụ trách</option></select>
+    <select id="ordFilterSalesGroup"><option value="">Tất cả nhóm doanh số</option></select>
+    <select id="ordFilterProductCategory"><option value="">Tất cả loại hàng</option></select>
+    <select id="ordFilterDateField">
+      <option value="">— Lọc theo ngày —</option>
+      <option value="deployDate">Ngày triển khai</option>
+      <option value="requestedDeliveryDate">Ngày yêu cầu giao hàng</option>
+      <option value="etdDate">Cancel date / ETD</option>
+      <option value="actualShipDate">Ngày đóng hàng thực tế</option>
+    </select>
+    <input type="date" id="ordFilterDateFrom" title="Từ ngày">
+    <input type="date" id="ordFilterDateTo" title="Đến ngày">
+    <button class="btn-ghost" id="ordClearFilterBtn">Xoá lọc</button>
     <div class="spacer"></div>
     <button class="btn-ghost" id="ordExportBtn">Xuất Excel</button>
     <div class="view-toggle">
@@ -1160,6 +1172,16 @@ function initStaticDropdowns(){
   fillSelect('ordFilterOrderType', ORDER_TYPES, 'Tất cả loại đơn hàng');
   fillSelect('ordFilterPerson', TEAM_MEMBERS, 'Tất cả người phụ trách');
   populateOrderFilterCustomer();
+  populateOrderFilterSalesGroup();
+  fillSelect('ordFilterProductCategory', PRODUCT_CATEGORIES, 'Tất cả loại hàng');
+}
+
+function populateOrderFilterSalesGroup(){
+  const el = document.getElementById('ordFilterSalesGroup');
+  if(!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">Tất cả nhóm doanh số</option>' + SALES_GROUPS.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(SALES_GROUP_LABELS[v])}</option>`).join('');
+  el.value = cur;
 }
 
 function populateOrderFilterCustomer(){
@@ -2217,6 +2239,11 @@ function getFilteredOrders(){
   const orderType = document.getElementById('ordFilterOrderType').value;
   const customerId = document.getElementById('ordFilterCustomer').value;
   const person = document.getElementById('ordFilterPerson').value;
+  const salesGroup = document.getElementById('ordFilterSalesGroup').value;
+  const productCategory = document.getElementById('ordFilterProductCategory').value;
+  const dateField = document.getElementById('ordFilterDateField').value;
+  const dateFrom = document.getElementById('ordFilterDateFrom').value;
+  const dateTo = document.getElementById('ordFilterDateTo').value;
   const list = orders.filter(o => {
     const c = customerById(o.customerId);
     if(progress && getOrderProgressInfo(o).statusLabel !== progress) return false;
@@ -2224,6 +2251,14 @@ function getFilteredOrders(){
     if(orderType && o.orderType !== orderType) return false;
     if(customerId && o.customerId !== customerId) return false;
     if(person && (o.personInCharge || '') !== person) return false;
+    if(salesGroup && (o.salesGroup || '') !== salesGroup) return false;
+    if(productCategory && !(o.productCategories || []).includes(productCategory)) return false;
+    if(dateField && (dateFrom || dateTo)){
+      const dv = o[dateField] || '';
+      if(!dv) return false;
+      if(dateFrom && dv < dateFrom) return false;
+      if(dateTo && dv > dateTo) return false;
+    }
     if(q){
       const cats = o.productCategories || [];
       const hay = [o.orderNumber, c ? c.companyName : '', c ? c.customerCode : '', cats.join(' ')].join(' ').toLowerCase();
@@ -3010,8 +3045,17 @@ function bindEvents(){
     document.getElementById(id).addEventListener('input', e => autoGrowTextarea(e.target));
   });
   ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); }));
-  ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson'].forEach(id => {
+  ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson','ordFilterSalesGroup','ordFilterProductCategory','ordFilterDateField'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); });
+  });
+  ['ordFilterDateFrom','ordFilterDateTo'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); });
+  });
+  document.getElementById('ordClearFilterBtn').addEventListener('click', () => {
+    document.getElementById('ordSearchInput').value = '';
+    ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson','ordFilterSalesGroup','ordFilterProductCategory','ordFilterDateField'].forEach(id => { document.getElementById(id).value = ''; });
+    ['ordFilterDateFrom','ordFilterDateTo'].forEach(id => { document.getElementById(id).value = ''; });
+    if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable();
   });
   document.getElementById('ordExportBtn').addEventListener('click', exportOrdersXlsx);
   document.getElementById('ordViewTableBtn').addEventListener('click', () => switchOrdView('table'));
