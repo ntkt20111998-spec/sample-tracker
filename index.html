@@ -2310,6 +2310,10 @@ function renderOrdersView(){
   populateCustomerSelect('ord_customerId');
   populateOrderFilterCustomer();
   populateOrderFilterPerson();
+  refreshOrdersView();
+}
+
+function refreshOrdersView(){
   renderOrderStats();
   if(ordView === 'dashboard') renderOrdersDashboard();
   else renderOrdersTable();
@@ -2323,10 +2327,11 @@ function switchOrdView(v){
 }
 
 function renderOrderStats(){
-  const total = orders.length;
-  const totalValue = orders.reduce((sum,o) => sum + (Number(o.orderValue) || 0), 0);
-  const lateCount = orders.filter(o => getOrderProgressInfo(o).isOverdue).length;
-  const inspectIssueCount = orders.filter(o => o.inspectionResult === 'Fail' || o.inspectionResult === 'Pending').length;
+  const list = getFilteredOrders();
+  const total = list.length;
+  const totalValue = list.reduce((sum,o) => sum + (Number(o.orderValue) || 0), 0);
+  const lateCount = list.filter(o => getOrderProgressInfo(o).isOverdue).length;
+  const inspectIssueCount = list.filter(o => o.inspectionResult === 'Fail' || o.inspectionResult === 'Pending').length;
   const html = `
     <div class="stat-card"><div class="num">${total}</div><div class="label">Tổng số đơn hàng</div></div>
     <div class="stat-card"><div class="num">$${totalValue.toLocaleString('en-US')}</div><div class="label">Tổng giá trị</div></div>
@@ -3044,18 +3049,18 @@ function bindEvents(){
   ['ord_productionUpdate','ord_delayFailReason','ord_notes'].forEach(id => {
     document.getElementById(id).addEventListener('input', e => autoGrowTextarea(e.target));
   });
-  ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); }));
+  ['ordSearchInput'].forEach(id => document.getElementById(id).addEventListener('input', refreshOrdersView));
   ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson','ordFilterSalesGroup','ordFilterProductCategory','ordFilterDateField'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); });
+    document.getElementById(id).addEventListener('change', refreshOrdersView);
   });
   ['ordFilterDateFrom','ordFilterDateTo'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => { if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable(); });
+    document.getElementById(id).addEventListener('change', refreshOrdersView);
   });
   document.getElementById('ordClearFilterBtn').addEventListener('click', () => {
     document.getElementById('ordSearchInput').value = '';
     ['ordFilterProgress','ordFilterInspection','ordFilterOrderType','ordFilterCustomer','ordFilterPerson','ordFilterSalesGroup','ordFilterProductCategory','ordFilterDateField'].forEach(id => { document.getElementById(id).value = ''; });
     ['ordFilterDateFrom','ordFilterDateTo'].forEach(id => { document.getElementById(id).value = ''; });
-    if(ordView==='dashboard') renderOrdersDashboard(); else renderOrdersTable();
+    refreshOrdersView();
   });
   document.getElementById('ordExportBtn').addEventListener('click', exportOrdersXlsx);
   document.getElementById('ordViewTableBtn').addEventListener('click', () => switchOrdView('table'));
